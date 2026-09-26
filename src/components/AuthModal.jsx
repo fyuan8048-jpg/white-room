@@ -359,11 +359,36 @@ export default function AuthModal({
           </button>
         </div>
 
-        {/* Error Banner */}
+        {/* Error Banner with Smart Registration Suggestion */}
         {error && (
-          <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center space-x-2 animate-in fade-in">
-            <span className="font-semibold">Notice:</span>
-            <span>{error}</span>
+          <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-200 text-xs space-y-2 animate-in fade-in">
+            <div className="flex items-center space-x-1.5 font-semibold text-rose-300">
+              <span>Notice:</span>
+              <span>{error}</span>
+            </div>
+            {error.includes('No account found') && (
+              <div className="pt-2 border-t border-rose-500/20 flex items-center justify-between">
+                <span className="text-[11px] text-slate-300">Haven't registered this account yet?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const raw = loginIdentifier.trim();
+                    if (raw.includes('@')) {
+                      setSignupEmail(raw);
+                      setSignupUsername(raw.split('@')[0]);
+                    } else {
+                      setSignupUsername(raw);
+                    }
+                    setSignupPassword(loginPassword);
+                    setMode('signup');
+                    setError('');
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-amber-400 text-black font-bold text-xs hover:bg-amber-300 transition-colors shadow"
+                >
+                  Register It Now →
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -376,7 +401,7 @@ export default function AuthModal({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. ayanokoji"
+                  placeholder="e.g. ayanokoji or student@gmail.com"
                   value={loginIdentifier}
                   onChange={(e) => setLoginIdentifier(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 rounded-xl bg-neutral-900 border border-white/15 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400"
@@ -415,6 +440,18 @@ export default function AuthModal({
               <LogIn className="w-4 h-4" />
               <span>{isLoading ? 'Authenticating...' : 'Sign In to White Room'}</span>
             </button>
+
+            {/* Helper link to switch to Register */}
+            <p className="text-[11px] text-slate-400 text-center pt-1">
+              New here?{' '}
+              <button
+                type="button"
+                onClick={() => { setMode('signup'); setError(''); }}
+                className="text-amber-300 font-semibold hover:underline"
+              >
+                Register a new student dossier
+              </button>
+            </p>
 
             {/* Quick Demo Access */}
             <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
@@ -532,6 +569,18 @@ export default function AuthModal({
               <UserPlus className="w-4 h-4" />
               <span>{isLoading ? 'Creating Dossier...' : 'Register Student Dossier'}</span>
             </button>
+
+            {/* Helper link to switch to Login */}
+            <p className="text-[11px] text-slate-400 text-center pt-1">
+              Already registered?{' '}
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(''); }}
+                className="text-amber-300 font-semibold hover:underline"
+              >
+                Sign In here
+              </button>
+            </p>
           </form>
         )}
 
