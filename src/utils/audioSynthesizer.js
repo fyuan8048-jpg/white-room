@@ -23,9 +23,18 @@ class NaturalAudioSuite {
       whiteNoise: { node: null, gain: null, volume: 0 },
       clockTick: { interval: null, gain: null, volume: 0 },
       jazzRhodes: { interval: null, gain: null, volume: 0 },
+      bambooFountain: { node: null, gain: null, interval: null, volume: 0 },
+      waterfall: { node: null, gain: null, volume: 0 },
+      blizzardWind: { node: null, gain: null, lfo: null, volume: 0 },
+      autumnLeaves: { node: null, gain: null, interval: null, volume: 0 },
+      rainOnTent: { node: null, gain: null, interval: null, volume: 0 },
+      pondFrogs: { node: null, gain: null, interval: null, volume: 0 },
+      zenSingingBowl: { node: null, gain: null, interval: null, volume: 0 },
+      underwater: { node: null, gain: null, lfo: null, volume: 0 }
     };
     this.initialized = false;
     this.chimeEnabled = true;
+    this.analyser = null;
   }
 
   init() {
@@ -35,11 +44,25 @@ class NaturalAudioSuite {
       this.ctx = new AudioCtx();
       this.masterGain = this.ctx.createGain();
       this.masterGain.gain.setValueAtTime(0.75, this.ctx.currentTime);
-      this.masterGain.connect(this.ctx.destination);
+      
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 128;
+      this.analyser.smoothingTimeConstant = 0.82;
+      
+      this.masterGain.connect(this.analyser);
+      this.analyser.connect(this.ctx.destination);
       this.initialized = true;
     } catch (e) {
       console.warn("Web Audio API not supported", e);
     }
+  }
+
+  getAudioData() {
+    if (!this.analyser) return null;
+    const bufferLength = this.analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    this.analyser.getByteFrequencyData(dataArray);
+    return dataArray;
   }
 
   ensureContext() {
@@ -721,6 +744,365 @@ class NaturalAudioSuite {
         ch.interval = setInterval(playChord, 5000);
       }
     }
+
+    // 17. BAMBOO FOUNTAIN (Shishi-Odoshi / Japanese Zen Garden water clack & trickle)
+    if (track === 'bambooFountain') {
+      if (!ch.node) {
+        const bufferSize = 2 * this.ctx.sampleRate;
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = (Math.random() * 2 - 1) * 0.2;
+        }
+        const source = this.ctx.createBufferSource();
+        source.buffer = noiseBuffer;
+        source.loop = true;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1100, this.ctx.currentTime);
+        filter.Q.setValueAtTime(2.2, this.ctx.currentTime);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(ch.volume * 0.35, this.ctx.currentTime);
+
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        source.start(0);
+
+        ch.node = source;
+        ch.gain = gain;
+
+        const strikeBamboo = () => {
+          if (!this.ctx || ch.volume <= 0 || this.isMuted) return;
+          const now = this.ctx.currentTime;
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const strikeGain = this.ctx.createGain();
+
+          osc1.type = 'triangle';
+          osc1.frequency.setValueAtTime(420, now);
+          osc1.frequency.exponentialRampToValueAtTime(160, now + 0.14);
+
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(860, now);
+          osc2.frequency.exponentialRampToValueAtTime(320, now + 0.1);
+
+          strikeGain.gain.setValueAtTime(0, now);
+          strikeGain.gain.linearRampToValueAtTime(ch.volume * 0.55, now + 0.005);
+          strikeGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+
+          osc1.connect(strikeGain);
+          osc2.connect(strikeGain);
+          strikeGain.connect(this.masterGain);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 0.3);
+          osc2.stop(now + 0.3);
+        };
+
+        ch.interval = setInterval(strikeBamboo, 3800);
+      } else {
+        ch.gain.gain.setValueAtTime(ch.volume * 0.35, this.ctx.currentTime);
+      }
+    }
+
+    // 18. CASCADING WATERFALL (Massive mountain torrent)
+    if (track === 'waterfall') {
+      if (!ch.node) {
+        const bufferSize = 4 * this.ctx.sampleRate;
+        const noiseBuffer = this.ctx.createBuffer(2, bufferSize, this.ctx.sampleRate);
+        const left = noiseBuffer.getChannelData(0);
+        const right = noiseBuffer.getChannelData(1);
+        let l = 0, r = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const wL = Math.random() * 2 - 1;
+          const wR = Math.random() * 2 - 1;
+          l = (l + 0.05 * wL) / 1.02;
+          r = (r + 0.05 * wR) / 1.02;
+          left[i] = l * 2.8;
+          right[i] = r * 2.8;
+        }
+        const source = this.ctx.createBufferSource();
+        source.buffer = noiseBuffer;
+        source.loop = true;
+
+        const lp = this.ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.setValueAtTime(1400, this.ctx.currentTime);
+
+        const hp = this.ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.setValueAtTime(160, this.ctx.currentTime);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(ch.volume * 0.7, this.ctx.currentTime);
+
+        source.connect(hp);
+        hp.connect(lp);
+        lp.connect(gain);
+        gain.connect(this.masterGain);
+
+        source.start(0);
+        ch.node = source;
+        ch.gain = gain;
+      } else {
+        ch.gain.gain.setValueAtTime(ch.volume * 0.7, this.ctx.currentTime);
+      }
+    }
+
+    // 19. BLIZZARD WIND (Winter snowstorm howling gale)
+    if (track === 'blizzardWind') {
+      if (!ch.node) {
+        const bufferSize = 4 * this.ctx.sampleRate;
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const out = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          out[i] = (Math.random() * 2 - 1) * 0.5;
+        }
+        const source = this.ctx.createBufferSource();
+        source.buffer = noiseBuffer;
+        source.loop = true;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(540, this.ctx.currentTime);
+        filter.Q.setValueAtTime(4.2, this.ctx.currentTime);
+
+        const lfo = this.ctx.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(0.12, this.ctx.currentTime);
+
+        const lfoGain = this.ctx.createGain();
+        lfoGain.gain.setValueAtTime(280, this.ctx.currentTime);
+        lfo.connect(lfoGain);
+        lfoGain.connect(filter.frequency);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(ch.volume * 0.65, this.ctx.currentTime);
+
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+
+        source.start(0);
+        lfo.start(0);
+
+        ch.node = source;
+        ch.lfo = lfo;
+        ch.gain = gain;
+      } else {
+        ch.gain.gain.setValueAtTime(ch.volume * 0.65, this.ctx.currentTime);
+      }
+    }
+
+    // 20. AUTUMN LEAVES (Whispering foliage & rustling breeze)
+    if (track === 'autumnLeaves') {
+      if (!ch.node) {
+        const bufferSize = 2 * this.ctx.sampleRate;
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const out = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          out[i] = (Math.random() * 2 - 1) * 0.25;
+        }
+        const source = this.ctx.createBufferSource();
+        source.buffer = noiseBuffer;
+        source.loop = true;
+
+        const hp = this.ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.setValueAtTime(2200, this.ctx.currentTime);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(ch.volume * 0.5, this.ctx.currentTime);
+
+        source.connect(hp);
+        hp.connect(gain);
+        gain.connect(this.masterGain);
+        source.start(0);
+
+        ch.node = source;
+        ch.gain = gain;
+
+        const rustle = () => {
+          if (!this.ctx || ch.volume <= 0 || this.isMuted) return;
+          const now = this.ctx.currentTime;
+          gain.gain.cancelScheduledValues(now);
+          gain.gain.setValueAtTime(gain.gain.value, now);
+          gain.gain.linearRampToValueAtTime(ch.volume * (0.35 + Math.random() * 0.35), now + 0.3);
+          gain.gain.linearRampToValueAtTime(ch.volume * 0.2, now + 1.2);
+        };
+        ch.interval = setInterval(rustle, 2000);
+      } else {
+        ch.gain.gain.setValueAtTime(ch.volume * 0.5, this.ctx.currentTime);
+      }
+    }
+
+    // 21. RAIN ON TENT (Cozy patter on canvas & window)
+    if (track === 'rainOnTent') {
+      if (!ch.node) {
+        const bufferSize = 2 * this.ctx.sampleRate;
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const out = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          out[i] = (Math.random() * 2 - 1) * 0.15;
+        }
+        const source = this.ctx.createBufferSource();
+        source.buffer = noiseBuffer;
+        source.loop = true;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(2200, this.ctx.currentTime);
+        filter.Q.setValueAtTime(1.8, this.ctx.currentTime);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(ch.volume * 0.6, this.ctx.currentTime);
+
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        source.start(0);
+
+        ch.node = source;
+        ch.gain = gain;
+
+        const tap = () => {
+          if (!this.ctx || ch.volume <= 0 || this.isMuted) return;
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const tGain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(1800 + Math.random() * 800, now);
+          osc.frequency.exponentialRampToValueAtTime(400, now + 0.02);
+
+          tGain.gain.setValueAtTime(ch.volume * 0.15, now);
+          tGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+
+          osc.connect(tGain);
+          tGain.connect(this.masterGain);
+          osc.start(now);
+          osc.stop(now + 0.04);
+        };
+        ch.interval = setInterval(tap, 95);
+      } else {
+        ch.gain.gain.setValueAtTime(ch.volume * 0.6, this.ctx.currentTime);
+      }
+    }
+
+    // 22. POND FROGS (Woodland pond evening twilight)
+    if (track === 'pondFrogs') {
+      if (!ch.interval) {
+        const croak = () => {
+          if (!this.ctx || ch.volume <= 0 || this.isMuted) return;
+          const now = this.ctx.currentTime;
+          const count = Math.random() > 0.4 ? 2 : 1;
+          for (let c = 0; c < count; c++) {
+            const start = now + c * 0.18;
+            const osc = this.ctx.createOscillator();
+            const fGain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(125 + Math.random() * 20, start);
+            osc.frequency.exponentialRampToValueAtTime(75, start + 0.12);
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(480, start);
+
+            fGain.gain.setValueAtTime(0, start);
+            fGain.gain.linearRampToValueAtTime(ch.volume * 0.22, start + 0.03);
+            fGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.14);
+
+            osc.connect(filter);
+            filter.connect(fGain);
+            fGain.connect(this.masterGain);
+
+            osc.start(start);
+            osc.stop(start + 0.15);
+          }
+        };
+        croak();
+        ch.interval = setInterval(croak, 3200);
+      }
+    }
+
+    // 23. TIBETAN SINGING BOWL (Zen resonance & ambient harmonics)
+    if (track === 'zenSingingBowl') {
+      if (!ch.interval) {
+        const strikeBowl = () => {
+          if (!this.ctx || ch.volume <= 0 || this.isMuted) return;
+          const now = this.ctx.currentTime;
+          const harmonics = [216, 540, 864, 1296];
+          harmonics.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const bGain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+
+            bGain.gain.setValueAtTime(0, now);
+            bGain.gain.linearRampToValueAtTime((ch.volume * 0.2) / (idx + 1), now + 0.8);
+            bGain.gain.exponentialRampToValueAtTime(0.0001, now + 6.5);
+
+            osc.connect(bGain);
+            bGain.connect(this.masterGain);
+
+            osc.start(now);
+            osc.stop(now + 6.8);
+          });
+        };
+        strikeBowl();
+        ch.interval = setInterval(strikeBowl, 7200);
+      }
+    }
+
+    // 24. UNDERWATER (Submerged oceanic depths)
+    if (track === 'underwater') {
+      if (!ch.node) {
+        const bufferSize = 4 * this.ctx.sampleRate;
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const out = noiseBuffer.getChannelData(0);
+        let last = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const w = Math.random() * 2 - 1;
+          last = (last + 0.015 * w) / 1.01;
+          out[i] = last * 3.5;
+        }
+        const source = this.ctx.createBufferSource();
+        source.buffer = noiseBuffer;
+        source.loop = true;
+
+        const lp = this.ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.setValueAtTime(190, this.ctx.currentTime);
+
+        const lfo = this.ctx.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(0.08, this.ctx.currentTime);
+
+        const lfoGain = this.ctx.createGain();
+        lfoGain.gain.setValueAtTime(60, this.ctx.currentTime);
+        lfo.connect(lfoGain);
+        lfoGain.connect(lp.frequency);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(ch.volume * 0.75, this.ctx.currentTime);
+
+        source.connect(lp);
+        lp.connect(gain);
+        gain.connect(this.masterGain);
+
+        source.start(0);
+        lfo.start(0);
+
+        ch.node = source;
+        ch.lfo = lfo;
+        ch.gain = gain;
+      } else {
+        ch.gain.gain.setValueAtTime(ch.volume * 0.75, this.ctx.currentTime);
+      }
+    }
   }
 
   stopTrack(track) {
@@ -741,12 +1123,12 @@ class NaturalAudioSuite {
       return;
     }
 
-    if (['campfire', 'thunderstorm', 'nightCrickets', 'morningBirds', 'keyboardTyping', 'clockTick', 'jazzRhodes'].includes(track)) {
+    if (['campfire', 'thunderstorm', 'nightCrickets', 'morningBirds', 'keyboardTyping', 'clockTick', 'jazzRhodes', 'bambooFountain', 'autumnLeaves', 'rainOnTent', 'pondFrogs', 'zenSingingBowl'].includes(track)) {
       if (ch.interval) {
         clearInterval(ch.interval);
         ch.interval = null;
       }
-      if (track !== 'campfire') return;
+      if (['nightCrickets', 'morningBirds', 'keyboardTyping', 'clockTick', 'jazzRhodes', 'pondFrogs', 'zenSingingBowl'].includes(track)) return;
     }
 
     if (ch.lfo) {

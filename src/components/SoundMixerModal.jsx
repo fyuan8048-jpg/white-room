@@ -23,7 +23,12 @@ import {
   Upload,
   Plus,
   Trash2,
-  Link
+  Link,
+  Bell,
+  Snowflake,
+  TreePine,
+  Anchor,
+  Tent
 } from 'lucide-react';
 import { saveMediaBlob } from '../utils/mediaDB';
 
@@ -55,29 +60,44 @@ export default function SoundMixerModal({
 
   const presets = [
     {
+      name: 'Kyoto Bamboo Zen Sanctuary',
+      desc: 'Bamboo water fountain + mountain brook, temple bowl & birds',
+      values: { bambooFountain: 0.85, waterStream: 0.5, zenSingingBowl: 0.4, morningBirds: 0.35, forestWind: 0.25 }
+    },
+    {
       name: 'Rainy Forest Solitude',
       desc: 'Forest rain + distant thunder & wind',
       values: { forestRain: 0.8, thunderstorm: 0.5, forestWind: 0.4, campfire: 0, oceanWaves: 0, brownNoise: 0, morningBirds: 0, nightCrickets: 0 }
     },
     {
-      name: 'Night Campfire by the Lake',
-      desc: 'Campfire + gentle ocean waves & crickets',
-      values: { campfire: 0.8, oceanWaves: 0.5, nightCrickets: 0.4, forestRain: 0, thunderstorm: 0, brownNoise: 0, forestWind: 0.2 }
+      name: 'Sub-Zero Mountain Cabin',
+      desc: 'Howling winter blizzard + crackling campfire & vinyl',
+      values: { blizzardWind: 0.85, campfire: 0.75, vinylCrackle: 0.35, brownNoise: 0.2 }
+    },
+    {
+      name: 'Rain on Tent & Pond',
+      desc: 'Raindrops on canvas tent + evening wetland frogs & rain',
+      values: { rainOnTent: 0.85, pondFrogs: 0.45, forestRain: 0.4, thunderstorm: 0.3 }
+    },
+    {
+      name: 'Alpine Waterfall Sanctuary',
+      desc: 'Roaring mountain waterfall + forest wind & autumn leaves',
+      values: { waterfall: 0.8, forestWind: 0.45, autumnLeaves: 0.4, brownNoise: 0.3 }
+    },
+    {
+      name: 'Deep Oceanic Abyss',
+      desc: 'Submerged oceanic depths + slow shoreline swells',
+      values: { underwater: 0.85, oceanWaves: 0.5, brownNoise: 0.4 }
+    },
+    {
+      name: 'Ghibli Rainy Jazz Cafe',
+      desc: 'Vinyl needle crackle + cafe murmur, rain & Rhodes chords',
+      values: { vinylCrackle: 0.6, cafeAmbience: 0.5, forestRain: 0.6, jazzRhodes: 0.45, campfire: 0, brownNoise: 0 }
     },
     {
       name: 'Deep Brown Cognitive Flow',
       desc: 'Velvety brown noise + water stream & clock',
       values: { brownNoise: 0.85, waterStream: 0.4, clockTick: 0.2, forestRain: 0, campfire: 0, oceanWaves: 0 }
-    },
-    {
-      name: 'Ghibli Rainy Jazz Cafe',
-      desc: 'Vinyl needle crackle + cafe murmur & rain',
-      values: { vinylCrackle: 0.6, cafeAmbience: 0.5, forestRain: 0.6, jazzRhodes: 0.4, campfire: 0, brownNoise: 0 }
-    },
-    {
-      name: 'Morning Zen Sanctuary',
-      desc: 'Morning birds + mountain stream & breeze',
-      values: { morningBirds: 0.6, waterStream: 0.5, forestWind: 0.35, brownNoise: 0, campfire: 0 }
     },
     {
       name: 'Pure Silence',
@@ -86,7 +106,9 @@ export default function SoundMixerModal({
         brownNoise: 0, oceanWaves: 0, campfire: 0, forestRain: 0, thunderstorm: 0,
         forestWind: 0, waterStream: 0, nightCrickets: 0, morningBirds: 0,
         keyboardTyping: 0, vinylCrackle: 0, cafeAmbience: 0, pinkNoise: 0,
-        whiteNoise: 0, clockTick: 0, jazzRhodes: 0
+        whiteNoise: 0, clockTick: 0, jazzRhodes: 0, bambooFountain: 0,
+        waterfall: 0, blizzardWind: 0, autumnLeaves: 0, rainOnTent: 0,
+        pondFrogs: 0, zenSingingBowl: 0, underwater: 0
       }
     }
   ];
@@ -100,20 +122,28 @@ export default function SoundMixerModal({
       name: 'Nature & Elements',
       icon: Trees,
       tracks: [
+        { key: 'bambooFountain', name: 'Bamboo Fountain (Shishi-Odoshi)', desc: 'Zen garden trickling water & bamboo knock', icon: Droplets, color: 'text-emerald-400' },
         { key: 'oceanWaves', name: 'Ocean Shoreline Waves', desc: 'Rhythmic, deep ocean swells', icon: Waves, color: 'text-cyan-400' },
         { key: 'forestRain', name: 'Forest Rain on Leaves', desc: 'Soothing rain through foliage', icon: CloudRain, color: 'text-blue-400' },
+        { key: 'waterfall', name: 'Cascading Mountain Waterfall', desc: 'Powerful, continuous alpine water roar', icon: Waves, color: 'text-sky-300' },
+        { key: 'rainOnTent', name: 'Rain on Canvas & Window', desc: 'Crisp rhythmic droplet taps on roof', icon: Tent, color: 'text-blue-300' },
+        { key: 'blizzardWind', name: 'Winter Blizzard Snowstorm', desc: 'Cold howling gale whistling outside', icon: Snowflake, color: 'text-cyan-200' },
+        { key: 'forestWind', name: 'Forest Wind & Canopy', desc: 'Gentle breeze rustling branches', icon: Wind, color: 'text-emerald-300' },
+        { key: 'autumnLeaves', name: 'Autumn Foliage Whisper', desc: 'Crisp dry leaves rustling underfoot', icon: TreePine, color: 'text-amber-500' },
         { key: 'thunderstorm', name: 'Distant Thunderstorm', desc: 'Sub-bass rolling thunder rumbles', icon: CloudLightning, color: 'text-purple-400' },
-        { key: 'forestWind', name: 'Forest Wind & Leaves', desc: 'Gentle breeze rustling branches', icon: Wind, color: 'text-emerald-400' },
         { key: 'campfire', name: 'Campfire & Fireplace', desc: 'Warm wood snaps & gentle flame hiss', icon: Flame, color: 'text-amber-400' },
         { key: 'waterStream', name: 'Mountain Water Brook', desc: 'Babbling clear river stream', icon: Droplets, color: 'text-teal-400' },
+        { key: 'underwater', name: 'Submerged Oceanic Depths', desc: 'Deep muffled aquatic womb resonance', icon: Anchor, color: 'text-indigo-400' },
       ]
     },
     living: {
       name: 'Living Ambience',
       icon: Moon,
       tracks: [
-        { key: 'morningBirds', name: 'Morning Forest Birds', desc: 'Peaceful woodland chirps', icon: Sparkles, color: 'text-emerald-300' },
+        { key: 'zenSingingBowl', name: 'Tibetan Singing Bowl', desc: 'Resonant harmonic meditative brass bell', icon: Bell, color: 'text-amber-300' },
+        { key: 'morningBirds', name: 'Morning Forest Birds', desc: 'Peaceful woodland chirps & melodies', icon: Sparkles, color: 'text-emerald-300' },
         { key: 'nightCrickets', name: 'Night Crickets & Cicadas', desc: 'Peaceful summer evening solitude', icon: Moon, color: 'text-indigo-300' },
+        { key: 'pondFrogs', name: 'Woodland Pond Wildlife', desc: 'Gentle evening frogs & marsh water', icon: Droplets, color: 'text-teal-300' },
         { key: 'cafeAmbience', name: 'Cozy Cafe Murmur', desc: 'Warm coffee shop background drone', icon: Coffee, color: 'text-orange-400' },
         { key: 'vinylCrackle', name: 'Vinyl Turntable Needle', desc: 'Vintage analog surface crackle', icon: Disc, color: 'text-rose-400' },
         { key: 'keyboardTyping', name: 'Soft Mechanical Typing', desc: 'Gentle rhythmic study typing', icon: Keyboard, color: 'text-amber-200' },

@@ -12,6 +12,7 @@ import OAAProfileModal from './components/OAAProfileModal';
 import CustomSoundLoopPlayer from './components/CustomSoundLoopPlayer';
 import AuthModal from './components/AuthModal';
 import BackgroundVideoControls from './components/BackgroundVideoControls';
+import AudioVisualizer from './components/AudioVisualizer';
 
 import { ANIME_SCENES } from './utils/artScenes';
 import { FOCUS_PLAYLIST } from './utils/focusTracks';
@@ -119,7 +120,17 @@ export default function App() {
   const [masterVolume, setMasterVolume] = useState(0.8);
   const [musicVolume, setMusicVolume] = useState(0.7);
 
-  // Acoustic natural sound mixer sliders (16 natural sounds)
+  // Dynamic Audio Visualizer State (Spectrum Bars, Glowing Waveform, Halo Pulse, Horizon)
+  const [isVisualizerOpen, setIsVisualizerOpen] = useState(() => {
+    const saved = localStorage.getItem('whiteroom_viz_open');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('whiteroom_viz_open', isVisualizerOpen);
+  }, [isVisualizerOpen]);
+
+  // Acoustic natural sound mixer sliders (24 natural sounds)
   const [acoustics, setAcoustics] = useState({
     brownNoise: 0,
     oceanWaves: 0,
@@ -136,7 +147,15 @@ export default function App() {
     pinkNoise: 0,
     whiteNoise: 0,
     clockTick: 0,
-    jazzRhodes: 0
+    jazzRhodes: 0,
+    bambooFountain: 0,
+    waterfall: 0,
+    blizzardWind: 0,
+    autumnLeaves: 0,
+    rainOnTent: 0,
+    pondFrogs: 0,
+    zenSingingBowl: 0,
+    underwater: 0
   });
 
   const mediaPlayerRef = useRef(null);
@@ -796,8 +815,19 @@ export default function App() {
           onOpenMusicUploader={() => setIsMusicUploaderOpen(true)}
           showVideoVisualizer={showVideoVisualizer}
           onToggleVideoVisualizer={() => setShowVideoVisualizer(!showVideoVisualizer)}
+          isVisualizerOpen={isVisualizerOpen}
+          onToggleVisualizer={() => setIsVisualizerOpen(!isVisualizerOpen)}
         />
       )}
+
+      {/* Dynamic Anime & Cyberpunk Audio Visualizer */}
+      <AudioVisualizer
+        isOpen={isVisualizerOpen && !zenMode}
+        onClose={() => setIsVisualizerOpen(false)}
+        isPlayingMusic={isPlayingMusic}
+        acoustics={acoustics}
+        activeSceneColor={currentScene.accentColor || '#fbbf24'}
+      />
 
       {/* Universal Media Element: Plays Audio Tracks & MP4 Video Sounds seamlessly */}
       <video
