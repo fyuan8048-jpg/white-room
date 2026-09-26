@@ -21,7 +21,8 @@ import {
   registerOrLoginGoogleUser, 
   getGoogleClientId, 
   saveGoogleClientId, 
-  parseJwt 
+  parseJwt,
+  getStoredAccounts
 } from '../utils/auth';
 
 export default function AuthModal({
@@ -56,6 +57,7 @@ export default function AuthModal({
   const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const storedAccounts = isOpen ? getStoredAccounts() : [];
   const googleButtonRef = useRef(null);
 
   // Initialize native Google Identity Services if client ID is configured
@@ -480,11 +482,44 @@ export default function AuthModal({
         {/* Form: SIGN IN */}
         {mode === 'login' ? (
           <form onSubmit={handleLoginSubmit} className="space-y-3 text-xs font-sans">
+            {/* Quick account switch pills if accounts exist */}
+            {storedAccounts.length > 0 && (
+              <div className="space-y-1.5 pb-1">
+                <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">
+                  Saved Dossiers on this Device:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {storedAccounts.map(acc => (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => {
+                        setLoginIdentifier(acc.username);
+                        setError('');
+                      }}
+                      className={`px-2.5 py-1 rounded-xl text-[11px] flex items-center space-x-1.5 transition-all border ${
+                        loginIdentifier.toLowerCase() === acc.username.toLowerCase()
+                          ? 'bg-amber-400/25 border-amber-400/60 text-amber-300 font-bold shadow'
+                          : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300'
+                      }`}
+                    >
+                      <User className="w-3 h-3 text-amber-300" />
+                      <span>{acc.displayName || acc.username}</span>
+                      <span className="text-[9px] text-slate-500 font-mono">({acc.studentId || acc.username})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="text-[10px] text-slate-400 block mb-1 uppercase font-semibold">Username or Email</label>
               <div className="relative">
                 <input
                   type="text"
+                  name="username"
+                  id="login-username"
+                  autoComplete="username"
                   required
                   placeholder="e.g. ayanokoji or student@gmail.com"
                   value={loginIdentifier}
@@ -500,6 +535,9 @@ export default function AuthModal({
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
+                  name="password"
+                  id="login-password"
+                  autoComplete="current-password"
                   required
                   placeholder="••••••••"
                   value={loginPassword}
@@ -558,6 +596,9 @@ export default function AuthModal({
                 <div className="relative">
                   <input
                     type="text"
+                    name="username"
+                    id="signup-username"
+                    autoComplete="username"
                     required
                     placeholder="e.g. kiyotaka"
                     value={signupUsername}
@@ -573,6 +614,9 @@ export default function AuthModal({
                 <div className="relative">
                   <input
                     type="email"
+                    name="email"
+                    id="signup-email"
+                    autoComplete="email"
                     placeholder="student@gmail.com"
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
@@ -588,6 +632,9 @@ export default function AuthModal({
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
+                  name="password"
+                  id="signup-password"
+                  autoComplete="new-password"
                   required
                   placeholder="Choose password"
                   value={signupPassword}
