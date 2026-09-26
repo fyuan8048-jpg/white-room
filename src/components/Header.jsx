@@ -126,23 +126,34 @@ export default function Header({
           <div className="relative">
             <button
               onClick={() => setShowUserDropdown(!showUserDropdown)}
-              className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-2xl bg-black/50 hover:bg-black/70 border border-amber-400/40 text-xs text-white backdrop-blur-xl shadow-lg transition-all"
+              className="flex items-center space-x-2 px-3 py-1.5 rounded-2xl bg-black/60 hover:bg-black/80 border border-emerald-400/50 text-xs text-white backdrop-blur-xl shadow-lg transition-all"
+              title={`Logged in as ${currentUser.displayName || currentUser.username}`}
             >
-              <div className="w-4 h-4 rounded-full bg-amber-400 text-black flex items-center justify-center font-bold text-[9px]">
-                {currentUser.displayName?.charAt(0) || currentUser.username.charAt(0).toUpperCase()}
+              <div className="relative flex items-center justify-center">
+                <div className="w-5 h-5 rounded-full bg-amber-400 text-black flex items-center justify-center font-bold text-[10px]">
+                  {currentUser.displayName?.charAt(0) || currentUser.username.charAt(0).toUpperCase()}
+                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-black animate-pulse" />
               </div>
-              <span className="hidden md:inline font-semibold max-w-[90px] truncate">
+              <span className="font-semibold text-xs max-w-[110px] truncate text-slate-100">
                 {currentUser.displayName || currentUser.username}
+              </span>
+              <span className="hidden sm:inline font-mono text-[10px] text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded-md border border-amber-400/20">
+                {currentUser.studentId || 'WR-STUDENT'}
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 
             {/* Dropdown Menu */}
             {showUserDropdown && (
-              <div className="absolute right-0 mt-2 w-48 rounded-2xl bg-neutral-950/95 border border-white/15 shadow-2xl p-2 text-xs font-sans space-y-1 animate-in fade-in z-50">
-                <div className="px-2 py-1.5 border-b border-white/10">
-                  <div className="font-bold text-white truncate">{currentUser.displayName || currentUser.username}</div>
-                  <div className="text-[10px] text-amber-300 font-mono">{currentUser.studentId || currentUser.username}</div>
+              <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-neutral-950/95 border border-white/15 shadow-2xl p-2 text-xs font-sans space-y-1 animate-in fade-in z-50">
+                <div className="px-2.5 py-2 border-b border-white/10 bg-white/5 rounded-xl mb-1">
+                  <div className="font-bold text-white truncate text-xs flex items-center space-x-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <span>{currentUser.displayName || currentUser.username}</span>
+                  </div>
+                  <div className="text-[10px] text-amber-300 font-mono mt-0.5">ID: {currentUser.studentId || currentUser.username}</div>
+                  <div className="text-[10px] text-slate-400 truncate">{currentUser.email || `${currentUser.username}@whiteroom`}</div>
                 </div>
 
                 <button
@@ -150,7 +161,7 @@ export default function Header({
                     setShowUserDropdown(false);
                     onOpenProfile();
                   }}
-                  className="w-full text-left px-2 py-1.5 rounded-xl hover:bg-white/10 text-slate-200 flex items-center space-x-1.5"
+                  className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-white/10 text-slate-200 flex items-center space-x-2 transition-colors"
                 >
                   <User className="w-3.5 h-3.5 text-amber-300" />
                   <span>View OAA Dossier</span>
@@ -161,7 +172,7 @@ export default function Header({
                     setShowUserDropdown(false);
                     onOpenAuth();
                   }}
-                  className="w-full text-left px-2 py-1.5 rounded-xl hover:bg-white/10 text-slate-200 flex items-center space-x-1.5"
+                  className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-white/10 text-slate-200 flex items-center space-x-2 transition-colors"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
                   <span>Switch Account / Sign In</span>
@@ -172,7 +183,7 @@ export default function Header({
                     setShowUserDropdown(false);
                     onLogout();
                   }}
-                  className="w-full text-left px-2 py-1.5 rounded-xl hover:bg-rose-500/20 text-rose-300 flex items-center space-x-1.5"
+                  className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-rose-500/20 text-rose-300 flex items-center space-x-2 transition-colors"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span>Sign Out</span>
@@ -183,11 +194,11 @@ export default function Header({
         ) : (
           <button
             onClick={onOpenAuth}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-2xl bg-amber-400 text-black hover:bg-amber-300 font-bold text-xs shadow-lg transition-all"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs shadow-lg transition-all"
             title="Sign In or Register New Account"
           >
             <LogIn className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Sign In</span>
+            <span>Sign In / Register</span>
           </button>
         )}
 

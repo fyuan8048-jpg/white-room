@@ -37,6 +37,8 @@ export default function App() {
   // Current Authenticated User (or null for Guest)
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authToast, setAuthToast] = useState(null);
+  const isSwitchingUserRef = useRef(false);
   const userId = currentUser?.id || null;
 
   // Real Daily Focus Stats & Streak tracking (User scoped or Global)
@@ -154,41 +156,49 @@ export default function App() {
   }, [sceneId]);
 
   useEffect(() => {
+    if (isSwitchingUserRef.current) return;
     if (userId) saveUserData(userId, 'custom_scenes', customScenes);
     else saveToStorage('custom_scenes', customScenes);
   }, [customScenes, userId]);
 
   useEffect(() => {
+    if (isSwitchingUserRef.current) return;
     if (userId) saveUserData(userId, 'custom_tracks', customTracks);
     else saveToStorage('custom_tracks', customTracks);
   }, [customTracks, userId]);
 
   useEffect(() => {
+    if (isSwitchingUserRef.current) return;
     if (userId) saveUserData(userId, 'custom_sound_layers', customSoundLayers);
     else saveToStorage('custom_sound_layers', customSoundLayers);
   }, [customSoundLayers, userId]);
 
   useEffect(() => {
+    if (isSwitchingUserRef.current) return;
     if (userId) saveUserData(userId, 'tasks', tasks);
     else saveToStorage('tasks', tasks);
   }, [tasks, userId]);
 
   useEffect(() => {
+    if (isSwitchingUserRef.current) return;
     if (userId) saveUserData(userId, 'cards', brainstormCards);
     else saveToStorage('cards', brainstormCards);
   }, [brainstormCards, userId]);
 
   useEffect(() => {
+    if (isSwitchingUserRef.current) return;
     if (userId) saveUserData(userId, 'session_logs', sessionLogs.slice(0, 5));
     else saveToStorage('session_logs', sessionLogs.slice(0, 5));
   }, [sessionLogs, userId]);
 
   useEffect(() => {
+    if (isSwitchingUserRef.current) return;
     if (userId) saveUserData(userId, 'profile', profile);
     else saveToStorage('profile', profile);
   }, [profile, userId]);
 
   useEffect(() => {
+    if (isSwitchingUserRef.current) return;
     if (userId) saveUserData(userId, 'focus_stats', focusStats);
     else saveDailyStats(focusStats);
   }, [focusStats, userId]);
@@ -197,10 +207,20 @@ export default function App() {
     saveToStorage('timer_config', timerConfig);
   }, [timerConfig]);
 
+  // Auto-dismiss auth toast notification
+  useEffect(() => {
+    if (!authToast) return;
+    const timer = setTimeout(() => {
+      setAuthToast(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [authToast]);
+
   // Handle Authentication Success (Login or Sign Up)
   const handleAuthSuccess = (user) => {
-    setCurrentUser(user);
+    isSwitchingUserRef.current = true;
     const uid = user.id;
+    setCurrentUser(user);
 
     // Load this user's isolated data
     setTasks(loadUserData(uid, 'tasks', []));
@@ -219,10 +239,20 @@ export default function App() {
       totalFocusMinutes: 0,
       sessionsCompleted: 0
     }));
+
+    setAuthToast({
+      type: 'success',
+      message: `Signed in as ${user.displayName || user.username} (${user.studentId || 'WR-STUDENT'})`
+    });
+
+    setTimeout(() => {
+      isSwitchingUserRef.current = false;
+    }, 150);
   };
 
   // Handle Sign Out
   const handleLogout = () => {
+    isSwitchingUserRef.current = true;
     logoutUser();
     setCurrentUser(null);
     const initial = getInitialData();
@@ -234,6 +264,15 @@ export default function App() {
     setCustomScenes(loadFromStorage('custom_scenes', []));
     setCustomTracks(loadFromStorage('custom_tracks', []));
     setCustomSoundLayers(loadFromStorage('custom_sound_layers', []));
+
+    setAuthToast({
+      type: 'info',
+      message: 'Signed out of White Room Sanctuary. Guest session active.'
+    });
+
+    setTimeout(() => {
+      isSwitchingUserRef.current = false;
+    }, 150);
   };
 
   // Restore blobs from IndexedDB across page reloads
@@ -594,6 +633,20 @@ export default function App() {
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black text-slate-100 flex flex-col justify-between selection:bg-amber-400/30 selection:text-amber-200">
       
+      {/* Toast Notification for Auth & System Events */}
+      {authToast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center space-x-2.5 px-4 py-2.5 rounded-2xl bg-neutral-950/95 border border-emerald-400/50 text-white shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-4">
+          <div className={`w-2.5 h-2.5 rounded-full ${authToast.type === 'success' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+          <span className="text-xs font-semibold">{authToast.message}</span>
+          <button 
+            onClick={() => setAuthToast(null)} 
+            className="text-slate-400 hover:text-white ml-2 text-xs p-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* 1. Fullscreen Anime Art or Animated MP4 Video Live Wallpaper */}
       {currentScene.isVideo ? (
         <video
