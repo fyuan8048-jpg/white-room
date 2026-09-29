@@ -18,8 +18,7 @@ import {
   Music,
   Upload,
   Video,
-  Film,
-  Activity
+  Film
 } from 'lucide-react';
 
 export default function BottomDock({
@@ -42,9 +41,7 @@ export default function BottomDock({
   onOpenArtUploader,
   onOpenMusicUploader,
   showVideoVisualizer,
-  onToggleVideoVisualizer,
-  isVisualizerOpen,
-  onToggleVisualizer
+  onToggleVideoVisualizer
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -191,20 +188,6 @@ export default function BottomDock({
         >
           <Sliders className="w-3.5 h-3.5 text-amber-300" />
           <span className="hidden sm:inline">Sounds</span>
-        </button>
-
-        {/* Dynamic Audio Visualizer Toggle */}
-        <button
-          onClick={onToggleVisualizer}
-          className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-sans transition-all ${
-            isVisualizerOpen
-              ? 'bg-cyan-400/25 text-cyan-300 border border-cyan-400/40 font-semibold shadow-cyan-400/20 shadow'
-              : 'text-slate-300 hover:text-white hover:bg-white/10'
-          }`}
-          title={isVisualizerOpen ? "Hide Audio Visualizer" : "Show Animated Audio Visualizer"}
-        >
-          <Activity className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="hidden sm:inline">Visualizer</span>
         </button>
 
         {/* Tasks */}

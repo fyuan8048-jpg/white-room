@@ -12,7 +12,6 @@ import OAAProfileModal from './components/OAAProfileModal';
 import CustomSoundLoopPlayer from './components/CustomSoundLoopPlayer';
 import AuthModal from './components/AuthModal';
 import BackgroundVideoControls from './components/BackgroundVideoControls';
-import AudioVisualizer from './components/AudioVisualizer';
 
 import { ANIME_SCENES } from './utils/artScenes';
 import { FOCUS_PLAYLIST } from './utils/focusTracks';
@@ -119,16 +118,6 @@ export default function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [masterVolume, setMasterVolume] = useState(0.8);
   const [musicVolume, setMusicVolume] = useState(0.7);
-
-  // Dynamic Audio Visualizer State (Spectrum Bars, Glowing Waveform, Halo Pulse, Horizon)
-  const [isVisualizerOpen, setIsVisualizerOpen] = useState(() => {
-    const saved = localStorage.getItem('whiteroom_viz_open');
-    return saved !== null ? saved === 'true' : true;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('whiteroom_viz_open', isVisualizerOpen);
-  }, [isVisualizerOpen]);
 
   // Acoustic natural sound mixer sliders (24 natural sounds)
   const [acoustics, setAcoustics] = useState({
@@ -569,19 +558,28 @@ export default function App() {
     }));
   };
 
-  const handleSetActiveTaskTitle = (title) => {
+  const handleSetActiveTaskTitle = (title, targetSessions = null, rank = 'A') => {
     if (!title.trim()) return;
     const newTask = {
       id: `task-${Date.now()}`,
       title: title.trim(),
-      category: 'Focus Curriculum',
+      category: 'Focus Directive',
+      rank: rank || 'A',
       completedSessions: 0,
-      targetSessions: 4,
+      targetSessions: targetSessions ? Number(targetSessions) : null,
       completed: false,
       createdAt: new Date().toISOString()
     };
     setTasks([newTask, ...tasks]);
     setActiveTaskId(newTask.id);
+  };
+
+  const handleUpdateTask = (id, updates) => {
+    setTasks(tasks.map(t => t.id === id ? { ...t, ...updates } : t));
+  };
+
+  const handleClearActiveTask = () => {
+    setActiveTaskId(null);
   };
 
   // Brainstorm Cards actions
@@ -741,7 +739,10 @@ export default function App() {
               onUpdateTimerConfig={setTimerConfig}
               activeTask={activeTask}
               onSetActiveTaskTitle={handleSetActiveTaskTitle}
+              onClearActiveTask={handleClearActiveTask}
+              onUpdateActiveTask={(updates) => activeTask && handleUpdateTask(activeTask.id, updates)}
               onTaskPomodoroIncrement={handleIncrementTaskPomodoro}
+              onTaskPomodoroDecrement={handleDecrementTaskPomodoro}
               onSessionComplete={handleSessionComplete}
               scene={currentScene}
             />
@@ -755,6 +756,7 @@ export default function App() {
               <TasksCurriculum
                 tasks={tasks}
                 onAddTask={handleAddTask}
+                onUpdateTask={handleUpdateTask}
                 onToggleTask={handleToggleTask}
                 onDeleteTask={handleDeleteTask}
                 onIncrementTaskPomodoro={handleIncrementTaskPomodoro}
@@ -815,19 +817,8 @@ export default function App() {
           onOpenMusicUploader={() => setIsMusicUploaderOpen(true)}
           showVideoVisualizer={showVideoVisualizer}
           onToggleVideoVisualizer={() => setShowVideoVisualizer(!showVideoVisualizer)}
-          isVisualizerOpen={isVisualizerOpen}
-          onToggleVisualizer={() => setIsVisualizerOpen(!isVisualizerOpen)}
         />
       )}
-
-      {/* Dynamic Anime & Cyberpunk Audio Visualizer */}
-      <AudioVisualizer
-        isOpen={isVisualizerOpen && !zenMode}
-        onClose={() => setIsVisualizerOpen(false)}
-        isPlayingMusic={isPlayingMusic}
-        acoustics={acoustics}
-        activeSceneColor={currentScene.accentColor || '#fbbf24'}
-      />
 
       {/* Universal Media Element: Plays Audio Tracks & MP4 Video Sounds seamlessly */}
       <video
