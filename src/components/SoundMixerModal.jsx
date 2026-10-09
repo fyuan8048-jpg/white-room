@@ -28,9 +28,14 @@ import {
   Snowflake,
   TreePine,
   Anchor,
-  Tent
+  Tent,
+  Zap,
+  Activity,
+  Layers,
+  Check
 } from 'lucide-react';
 import { saveMediaBlob } from '../utils/mediaDB';
+import { SOUNDSCAPE_PRESETS } from '../utils/audioSynthesizer';
 
 export default function SoundMixerModal({
   isOpen,
@@ -44,9 +49,14 @@ export default function SoundMixerModal({
   customSounds = [],
   onAddCustomSound,
   onUpdateCustomSoundVolume,
-  onDeleteCustomSound
+  onDeleteCustomSound,
+  binauralState = { type: 'none', volume: 0.5 },
+  onBinauralChange,
+  phaseConfig,
+  onUpdatePhaseConfig,
+  allScenes = []
 }) {
-  const [activeCategory, setActiveCategory] = useState('nature'); // 'nature' | 'living' | 'noises' | 'custom'
+  const [activeCategory, setActiveCategory] = useState('nature'); // 'nature' | 'living' | 'noises' | 'binaural' | 'automation' | 'custom'
   
   // Custom sound loop upload state
   const [customName, setCustomName] = useState('');
@@ -57,61 +67,6 @@ export default function SoundMixerModal({
   const [uploadTab, setUploadTab] = useState('file'); // 'file' | 'url'
 
   if (!isOpen) return null;
-
-  const presets = [
-    {
-      name: 'Kyoto Bamboo Zen Sanctuary',
-      desc: 'Bamboo water fountain + mountain brook, temple bowl & birds',
-      values: { bambooFountain: 0.85, waterStream: 0.5, zenSingingBowl: 0.4, morningBirds: 0.35, forestWind: 0.25 }
-    },
-    {
-      name: 'Rainy Forest Solitude',
-      desc: 'Forest rain + distant thunder & wind',
-      values: { forestRain: 0.8, thunderstorm: 0.5, forestWind: 0.4, campfire: 0, oceanWaves: 0, brownNoise: 0, morningBirds: 0, nightCrickets: 0 }
-    },
-    {
-      name: 'Sub-Zero Mountain Cabin',
-      desc: 'Howling winter blizzard + crackling campfire & vinyl',
-      values: { blizzardWind: 0.85, campfire: 0.75, vinylCrackle: 0.35, brownNoise: 0.2 }
-    },
-    {
-      name: 'Rain on Tent & Pond',
-      desc: 'Raindrops on canvas tent + evening wetland frogs & rain',
-      values: { rainOnTent: 0.85, pondFrogs: 0.45, forestRain: 0.4, thunderstorm: 0.3 }
-    },
-    {
-      name: 'Alpine Waterfall Sanctuary',
-      desc: 'Roaring mountain waterfall + forest wind & autumn leaves',
-      values: { waterfall: 0.8, forestWind: 0.45, autumnLeaves: 0.4, brownNoise: 0.3 }
-    },
-    {
-      name: 'Deep Oceanic Abyss',
-      desc: 'Submerged oceanic depths + slow shoreline swells',
-      values: { underwater: 0.85, oceanWaves: 0.5, brownNoise: 0.4 }
-    },
-    {
-      name: 'Ghibli Rainy Jazz Cafe',
-      desc: 'Vinyl needle crackle + cafe murmur, rain & Rhodes chords',
-      values: { vinylCrackle: 0.6, cafeAmbience: 0.5, forestRain: 0.6, jazzRhodes: 0.45, campfire: 0, brownNoise: 0 }
-    },
-    {
-      name: 'Deep Brown Cognitive Flow',
-      desc: 'Velvety brown noise + water stream & clock',
-      values: { brownNoise: 0.85, waterStream: 0.4, clockTick: 0.2, forestRain: 0, campfire: 0, oceanWaves: 0 }
-    },
-    {
-      name: 'Pure Silence',
-      desc: 'Reset all active layers',
-      values: {
-        brownNoise: 0, oceanWaves: 0, campfire: 0, forestRain: 0, thunderstorm: 0,
-        forestWind: 0, waterStream: 0, nightCrickets: 0, morningBirds: 0,
-        keyboardTyping: 0, vinylCrackle: 0, cafeAmbience: 0, pinkNoise: 0,
-        whiteNoise: 0, clockTick: 0, jazzRhodes: 0, bambooFountain: 0,
-        waterfall: 0, blizzardWind: 0, autumnLeaves: 0, rainOnTent: 0,
-        pondFrogs: 0, zenSingingBowl: 0, underwater: 0
-      }
-    }
-  ];
 
   const applyPreset = (values) => {
     Object.keys(values).forEach((k) => onAcousticChange(k, values[k]));
@@ -179,7 +134,6 @@ export default function SoundMixerModal({
   const handleAddCustomLoopSubmit = async (e) => {
     e.preventDefault();
     let url = customUrl;
-
     const id = `custom-sound-${Date.now()}`;
 
     if (uploadTab === 'file' && customFile) {
@@ -210,7 +164,8 @@ export default function SoundMixerModal({
 
   const activeProceduralCount = Object.values(acoustics).filter(v => v > 0).length;
   const activeCustomCount = customSounds.filter(s => s.volume > 0).length;
-  const totalActiveCount = activeProceduralCount + activeCustomCount;
+  const isBinauralActive = binauralState && binauralState.type !== 'none' && binauralState.volume > 0;
+  const totalActiveCount = activeProceduralCount + activeCustomCount + (isBinauralActive ? 1 : 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in">
@@ -223,8 +178,8 @@ export default function SoundMixerModal({
               <Sliders className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-white">Natural Soundscapes & Video Sound Matrix</h3>
-              <p className="text-[11px] text-slate-400">16 Organic soundscapes + Custom MP4 video sound loops</p>
+              <h3 className="font-bold text-base text-white">Focus Soundscapes & Frequencies</h3>
+              <p className="text-[11px] text-slate-400">Natural soundscapes, 40Hz Gamma binaural waves, and study/rest automation</p>
             </div>
           </div>
           <button
@@ -247,7 +202,7 @@ export default function SoundMixerModal({
               {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>
             <div>
-              <div className="font-semibold text-white">Master Sound Level</div>
+              <div className="font-semibold text-white">Master Audio Level</div>
               <div className="text-[10px] text-slate-400">{isMuted ? 'Muted' : `${Math.round(masterVolume * 100)}% Volume`}</div>
             </div>
           </div>
@@ -266,28 +221,31 @@ export default function SoundMixerModal({
           </div>
         </div>
 
-        {/* Presets Carousel */}
+        {/* 1-Click Presets Carousel */}
         <div>
           <div className="text-[11px] font-sans text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-            <span>Natural Soundscapes Presets</span>
-            <span className="text-amber-300 font-mono text-[10px]">{totalActiveCount} Layers Active</span>
+            <span>1-Click Soundscape Presets</span>
+            <span className="text-amber-300 font-mono text-[10px]">{totalActiveCount} Active Layers</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {presets.map((p) => (
+            {SOUNDSCAPE_PRESETS.map((p) => (
               <button
-                key={p.name}
+                key={p.id}
                 onClick={() => applyPreset(p.values)}
                 className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-left transition-all text-xs group"
               >
-                <div className="font-semibold text-white group-hover:text-amber-200 truncate">{p.name}</div>
-                <div className="text-[9px] text-slate-400 truncate mt-0.5">{p.desc}</div>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-white group-hover:text-amber-200 truncate">{p.name}</span>
+                  <span className="text-[9px] px-1 rounded bg-white/10 text-amber-300 font-mono">{p.tag}</span>
+                </div>
+                <div className="text-[10px] text-slate-400 truncate mt-0.5">{p.desc}</div>
               </button>
             ))}
           </div>
         </div>
 
         {/* Category Tabs */}
-        <div className="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs font-sans">
+        <div className="flex items-center p-1 rounded-2xl bg-black/50 border border-white/10 text-xs font-sans overflow-x-auto">
           {Object.entries(soundCategories).map(([key, cat]) => {
             const Icon = cat.icon;
             const isTabActive = activeCategory === key;
@@ -295,7 +253,7 @@ export default function SoundMixerModal({
               <button
                 key={key}
                 onClick={() => setActiveCategory(key)}
-                className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 rounded-xl transition-all ${
+                className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 px-2 rounded-xl transition-all flex-shrink-0 ${
                   isTabActive ? 'bg-white text-black font-semibold shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -305,25 +263,43 @@ export default function SoundMixerModal({
             );
           })}
 
-          {/* 4th Tab: Custom MP4 & Audio Sounds */}
+          {/* Binaural Beats Tab */}
+          <button
+            onClick={() => setActiveCategory('binaural')}
+            className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 px-2 rounded-xl transition-all flex-shrink-0 ${
+              activeCategory === 'binaural' ? 'bg-purple-400 text-black font-semibold shadow' : 'text-purple-300/80 hover:text-white'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span className="truncate">Binaural Waves</span>
+            {isBinauralActive && <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />}
+          </button>
+
+          {/* Study & Rest Automation Tab */}
+          <button
+            onClick={() => setActiveCategory('automation')}
+            className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 px-2 rounded-xl transition-all flex-shrink-0 ${
+              activeCategory === 'automation' ? 'bg-emerald-400 text-black font-semibold shadow' : 'text-emerald-300/80 hover:text-white'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span className="truncate">Study/Rest Auto</span>
+          </button>
+
+          {/* Custom MP4 / Video Sounds */}
           <button
             onClick={() => setActiveCategory('custom')}
-            className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 rounded-xl transition-all ${
+            className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 px-2 rounded-xl transition-all flex-shrink-0 ${
               activeCategory === 'custom' ? 'bg-amber-400 text-black font-semibold shadow' : 'text-amber-300/80 hover:text-white'
             }`}
           >
             <Video className="w-3.5 h-3.5" />
-            <span className="truncate">MP4 / Video Sounds</span>
-            {customSounds.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-black/40 text-[9px] font-bold">
-                {customSounds.length}
-              </span>
-            )}
+            <span className="truncate">Custom Loops</span>
           </button>
         </div>
 
-        {/* Sliders Grid for Active Category */}
-        {activeCategory !== 'custom' ? (
+        {/* Tab 1, 2, 3: Natural Acoustic Sliders */}
+        {['nature', 'living', 'noises'].includes(activeCategory) && (
           <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1 text-xs font-sans">
             {soundCategories[activeCategory].tracks.map((t) => {
               const Icon = t.icon;
@@ -362,11 +338,218 @@ export default function SoundMixerModal({
               );
             })}
           </div>
-        ) : (
-          /* Custom MP4 Video & Audio Sound Loops Section */
+        )}
+
+        {/* Tab 4: Binaural Waves Generator */}
+        {activeCategory === 'binaural' && (
+          <div className="p-4 rounded-2xl bg-purple-950/20 border border-purple-500/20 space-y-4 font-sans text-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-bold text-white text-sm flex items-center space-x-1.5">
+                  <Zap className="w-4 h-4 text-purple-400" />
+                  <span>Stereo Binaural Focus Waves</span>
+                </h4>
+                <p className="text-[11px] text-slate-400">
+                  Best with headphones. Generates frequency differential between left & right ears.
+                </p>
+              </div>
+
+              {binauralState?.type !== 'none' && (
+                <button
+                  onClick={() => onBinauralChange && onBinauralChange('none', 0)}
+                  className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 text-[10px]"
+                >
+                  Turn Off
+                </button>
+              )}
+            </div>
+
+            {/* Wave Options */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'gamma40', name: '40Hz Gamma', desc: 'Peak cognitive focus & logic solving', tag: 'High Intensity' },
+                { id: 'alpha10', name: '10Hz Alpha', desc: 'Flow state, relaxed alertness & reading', tag: 'Flow & Calm' },
+                { id: 'theta6', name: '6Hz Theta', desc: 'Deep memory retention & meditation', tag: 'Rest & Recall' },
+              ].map((w) => {
+                const isActive = binauralState?.type === w.id;
+                return (
+                  <button
+                    key={w.id}
+                    onClick={() => onBinauralChange && onBinauralChange(isActive ? 'none' : w.id, binauralState?.volume || 0.5)}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      isActive 
+                        ? 'bg-purple-500/25 border-purple-400 text-white ring-1 ring-purple-400 shadow-lg' 
+                        : 'bg-white/5 border-white/10 text-slate-300 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="font-bold text-white text-xs flex items-center justify-between">
+                      <span>{w.name}</span>
+                      {isActive && <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />}
+                    </div>
+                    <div className="text-[10px] text-purple-300 font-mono mt-0.5">{w.tag}</div>
+                    <div className="text-[10px] text-slate-400 mt-1 line-clamp-2">{w.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Volume control */}
+            {binauralState?.type !== 'none' && (
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between space-x-3">
+                <span className="text-[11px] text-slate-300 font-medium">Binaural Volume:</span>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.05"
+                  value={binauralState?.volume || 0.5}
+                  onChange={(e) => onBinauralChange && onBinauralChange(binauralState.type, Number(e.target.value))}
+                  className="flex-1 accent-purple-400 cursor-pointer"
+                />
+                <span className="text-[10px] font-mono text-purple-300 w-8 text-right">
+                  {Math.round((binauralState?.volume || 0.5) * 100)}%
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 5: Study / Rest Auto-Transitions Engine */}
+        {activeCategory === 'automation' && (
+          <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-500/20 space-y-4 font-sans text-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-bold text-white text-sm flex items-center space-x-1.5">
+                  <Layers className="w-4 h-4 text-emerald-400" />
+                  <span>Phase Theme & Audio Transitions</span>
+                </h4>
+                <p className="text-[11px] text-slate-400">
+                  Automatically switch background wallpaper & soundscape between Study, Short Rest, and Long Rest!
+                </p>
+              </div>
+
+              <label className="flex items-center space-x-2 cursor-pointer bg-white/10 px-3 py-1.5 rounded-xl border border-white/15">
+                <input
+                  type="checkbox"
+                  checked={phaseConfig?.autoSwitchAudio ?? true}
+                  onChange={(e) => onUpdatePhaseConfig && onUpdatePhaseConfig({ autoSwitchAudio: e.target.checked })}
+                  className="accent-emerald-400 rounded"
+                />
+                <span className="text-white text-xs font-semibold">Auto-Switch On</span>
+              </label>
+            </div>
+
+            {/* Phase Grid */}
+            <div className="space-y-3">
+              {/* 1. Study Mode */}
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-amber-300">
+                  <span>1. STUDY & DEEP FOCUS</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Active Pomodoro / Flowtime</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-0.5">THEME WALLPAPER</label>
+                    <select
+                      value={phaseConfig?.studySceneId || 'cote-white-room'}
+                      onChange={(e) => onUpdatePhaseConfig && onUpdatePhaseConfig({ studySceneId: e.target.value })}
+                      className="w-full p-1.5 rounded-lg bg-neutral-900 border border-white/15 text-white"
+                    >
+                      {allScenes.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-0.5">AUDIO SOUNDSCAPE</label>
+                    <select
+                      value={phaseConfig?.studyPreset || 'tokyo-midnight-rain'}
+                      onChange={(e) => onUpdatePhaseConfig && onUpdatePhaseConfig({ studyPreset: e.target.value })}
+                      className="w-full p-1.5 rounded-lg bg-neutral-900 border border-white/15 text-white"
+                    >
+                      {SOUNDSCAPE_PRESETS.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Short Rest */}
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
+                  <span>2. SHORT REST & COFFEE BREAK</span>
+                  <span className="text-[10px] text-slate-400 font-normal">5 - 10 min break</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-0.5">THEME WALLPAPER</label>
+                    <select
+                      value={phaseConfig?.shortBreakSceneId || 'ghibli-sanctuary-desk'}
+                      onChange={(e) => onUpdatePhaseConfig && onUpdatePhaseConfig({ shortBreakSceneId: e.target.value })}
+                      className="w-full p-1.5 rounded-lg bg-neutral-900 border border-white/15 text-white"
+                    >
+                      {allScenes.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-0.5">AUDIO SOUNDSCAPE</label>
+                    <select
+                      value={phaseConfig?.shortBreakPreset || 'kyoto-bamboo-sanctuary'}
+                      onChange={(e) => onUpdatePhaseConfig && onUpdatePhaseConfig({ shortBreakPreset: e.target.value })}
+                      className="w-full p-1.5 rounded-lg bg-neutral-900 border border-white/15 text-white"
+                    >
+                      {SOUNDSCAPE_PRESETS.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Long Rest */}
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-purple-300">
+                  <span>3. LONG REST & RECOVERY</span>
+                  <span className="text-[10px] text-slate-400 font-normal">15 - 30 min recovery</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-0.5">THEME WALLPAPER</label>
+                    <select
+                      value={phaseConfig?.longBreakSceneId || 'ghibli-midnight-library'}
+                      onChange={(e) => onUpdatePhaseConfig && onUpdatePhaseConfig({ longBreakSceneId: e.target.value })}
+                      className="w-full p-1.5 rounded-lg bg-neutral-900 border border-white/15 text-white"
+                    >
+                      {allScenes.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-0.5">AUDIO SOUNDSCAPE</label>
+                    <select
+                      value={phaseConfig?.longBreakPreset || 'solitary-campfire-night'}
+                      onChange={(e) => onUpdatePhaseConfig && onUpdatePhaseConfig({ longBreakPreset: e.target.value })}
+                      className="w-full p-1.5 rounded-lg bg-neutral-900 border border-white/15 text-white"
+                    >
+                      {SOUNDSCAPE_PRESETS.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* Tab 6: Custom Sound Loops */}
+        {activeCategory === 'custom' && (
           <div className="space-y-3 font-sans text-xs">
-            
-            {/* Inline Add Custom Sound Loop */}
             <form onSubmit={handleAddCustomLoopSubmit} className="p-3 rounded-2xl bg-white/5 border border-white/10 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-white text-xs flex items-center space-x-1.5">
@@ -442,13 +625,11 @@ export default function SoundMixerModal({
               </div>
             </form>
 
-            {/* List of active custom sound loops */}
             <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
               {customSounds.length === 0 ? (
                 <div className="p-4 text-center text-slate-500 bg-white/5 rounded-2xl border border-white/5">
                   <Film className="w-6 h-6 mx-auto mb-1 text-slate-600" />
                   <p className="text-xs">No custom MP4 video sound loops added yet.</p>
-                  <p className="text-[10px] text-slate-600 mt-0.5">Upload any MP4 video or audio file to mix it as an ambient loop!</p>
                 </div>
               ) : (
                 customSounds.map((s) => {
@@ -456,21 +637,10 @@ export default function SoundMixerModal({
                   return (
                     <div key={s.id} className="flex items-center justify-between space-x-3 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-colors">
                       <div className="flex items-center space-x-2.5 w-44">
-                        {s.isVideo ? (
-                          <Video className="w-4 h-4 text-amber-300 flex-shrink-0" />
-                        ) : (
-                          <Music className="w-4 h-4 text-cyan-300 flex-shrink-0" />
-                        )}
+                        {s.isVideo ? <Video className="w-4 h-4 text-amber-300 flex-shrink-0" /> : <Music className="w-4 h-4 text-cyan-300 flex-shrink-0" />}
                         <div className="overflow-hidden">
-                          <div className="font-medium text-white text-xs truncate flex items-center space-x-1.5">
-                            <span>{s.name}</span>
-                            {val > 0 && !isMuted && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                            )}
-                          </div>
-                          <div className="text-[10px] text-amber-400/80 font-mono">
-                            {s.isVideo ? 'MP4 Video Sound Loop' : 'Audio Loop'}
-                          </div>
+                          <div className="font-medium text-white text-xs truncate">{s.name}</div>
+                          <div className="text-[10px] text-amber-400/80 font-mono">{s.isVideo ? 'MP4 Video Loop' : 'Audio Loop'}</div>
                         </div>
                       </div>
 
@@ -485,9 +655,6 @@ export default function SoundMixerModal({
                           disabled={isMuted}
                           className="w-full accent-amber-400 cursor-pointer"
                         />
-                        <span className="text-[10px] font-mono text-slate-400 w-8 text-right flex-shrink-0">
-                          {Math.round(val * 100)}%
-                        </span>
                         <button
                           type="button"
                           onClick={() => onDeleteCustomSound && onDeleteCustomSound(s.id)}
@@ -502,21 +669,22 @@ export default function SoundMixerModal({
                 })
               )}
             </div>
-
           </div>
         )}
 
+        {/* Footer */}
         <div className="flex justify-between items-center pt-2 border-t border-white/10 text-xs font-sans">
           <button
             onClick={() => {
               Object.keys(acoustics).forEach(k => onAcousticChange(k, 0));
+              if (onBinauralChange) onBinauralChange('none', 0);
               if (customSounds.length > 0 && onUpdateCustomSoundVolume) {
                 customSounds.forEach(s => onUpdateCustomSoundVolume(s.id, 0));
               }
             }}
             className="text-slate-400 hover:text-white"
           >
-            Reset All Sounds
+            Reset All Audio
           </button>
           <button
             onClick={onClose}

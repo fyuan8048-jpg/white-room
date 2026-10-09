@@ -19,8 +19,18 @@ import {
   Upload,
   Video,
   Film,
-  Edit2
+  Edit2,
+  Users,
+  FileText,
+  Sun,
+  Moon
 } from 'lucide-react';
+
+const YoutubeIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+  </svg>
+);
 
 export default function BottomDock({
   scenes,
@@ -43,7 +53,14 @@ export default function BottomDock({
   onOpenMusicUploader,
   showVideoVisualizer,
   onToggleVideoVisualizer,
-  onOpenRenameScene
+  onOpenRenameScene,
+  onOpenNotebook,
+  isBuddiesOpen,
+  onToggleBuddies,
+  isMediaEmbedOpen,
+  onToggleMediaEmbed,
+  dayNightProfile,
+  onToggleDayNight
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -208,6 +225,57 @@ export default function BottomDock({
         >
           <Sliders className="w-3.5 h-3.5 text-amber-300" />
           <span className="hidden sm:inline">Sounds</span>
+        </button>
+
+        {/* In-App Study Notes & Flashcards */}
+        <button
+          onClick={onOpenNotebook}
+          className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-sans text-slate-300 hover:text-white hover:bg-white/10 transition-all"
+          title="In-App Study Notebook & Flashcards"
+        >
+          <FileText className="w-3.5 h-3.5 text-cyan-300" />
+          <span className="hidden lg:inline">Notes</span>
+        </button>
+
+        {/* Silent Study Room Avatars */}
+        <button
+          onClick={onToggleBuddies}
+          className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-sans transition-all ${
+            isBuddiesOpen
+              ? 'bg-cyan-400/25 text-cyan-300 font-semibold'
+              : 'text-slate-300 hover:text-white hover:bg-white/10'
+          }`}
+          title="Silent Study Room Avatars (Library Immersion)"
+        >
+          <Users className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="hidden lg:inline">Buddies</span>
+        </button>
+
+        {/* YouTube & Spotify Focus Streams Deck */}
+        <button
+          onClick={onToggleMediaEmbed}
+          className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-sans transition-all ${
+            isMediaEmbedOpen
+              ? 'bg-rose-500/25 text-rose-300 font-semibold'
+              : 'text-slate-300 hover:text-white hover:bg-white/10'
+          }`}
+          title="YouTube & Spotify Focus Stream Deck"
+        >
+          <YoutubeIcon className="w-3.5 h-3.5 text-rose-400" />
+          <span className="hidden lg:inline">Radio</span>
+        </button>
+
+        {/* Dynamic Day/Night & Weather Cycle Button */}
+        <button
+          onClick={onToggleDayNight}
+          className="flex items-center p-1.5 rounded-xl text-xs font-sans text-slate-300 hover:text-white hover:bg-white/10 transition-all"
+          title={`Day/Night & Weather: ${dayNightProfile?.name || 'Synced with time'} (Click to cycle)`}
+        >
+          {dayNightProfile?.accentDot === '#6366f1' ? (
+            <Moon className="w-3.5 h-3.5 text-indigo-300" />
+          ) : (
+            <Sun className="w-3.5 h-3.5 text-amber-300" />
+          )}
         </button>
 
         {/* Tasks */}

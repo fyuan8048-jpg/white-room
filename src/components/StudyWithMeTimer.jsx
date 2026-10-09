@@ -7,14 +7,18 @@ import {
   Settings, 
   Check, 
   Target, 
-  Sparkles,
-  Layers,
-  Plus,
-  Minus,
-  X,
-  Edit2,
-  Bell,
-  BellOff
+  Sparkles, 
+  Layers, 
+  Plus, 
+  Minus, 
+  X, 
+  Edit2, 
+  Clock, 
+  Tag, 
+  BookOpen, 
+  Award, 
+  ChevronDown,
+  CheckCircle2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { focusAudioSuite } from '../utils/audioSynthesizer';
@@ -39,6 +43,16 @@ const createTimerWorker = () => {
   return new Worker(URL.createObjectURL(blob));
 };
 
+const DEFAULT_SUBJECTS = [
+  'Mathematics',
+  'Coding & Architecture',
+  'Deep Reading',
+  'Strategy & Logic',
+  'Exam Preparation',
+  'Language Studies',
+  'Philosophy & Mind'
+];
+
 export default function StudyWithMeTimer({
   timerConfig,
   onUpdateTimerConfig,
@@ -49,14 +63,21 @@ export default function StudyWithMeTimer({
   onTaskPomodoroIncrement,
   onTaskPomodoroDecrement,
   onSessionComplete,
-  scene
+  scene,
+  onPhaseChange,
+  currentSubject = 'Deep Focus',
+  onChangeSubject
 }) {
-  const [mode, setMode] = useState('focus'); // 'focus' | 'shortBreak' | 'longBreak'
+  // Modes: 'focus' | 'flowtime' | 'ultradian' | 'exam' | 'shortBreak' | 'longBreak'
+  const [mode, setMode] = useState('focus');
   const [timeLeft, setTimeLeft] = useState(timerConfig.focusTime * 60);
+  const [flowtimeSeconds, setFlowtimeSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [sessionCount, setSessionCount] = useState(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isEditingTask, setIsEditingTask] = useState(false);
+  const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
+  const [customSubjectInput, setCustomSubjectInput] = useState('');
 
   // Card appearance mode: 'glass' (default) | 'transparent' | 'solid'
   const [cardStyle, setCardStyle] = useState(() => {
@@ -66,7 +87,7 @@ export default function StudyWithMeTimer({
   // Task creation options
   const [taskInput, setTaskInput] = useState('');
   const [taskRank, setTaskRank] = useState('A');
-  const [taskTargetSessions, setTaskTargetSessions] = useState(''); // empty = no target restriction
+  const [taskTargetSessions, setTaskTargetSessions] = useState('');
 
   // Editing state for active task
   const [editTitle, setEditTitle] = useState('');
@@ -77,11 +98,14 @@ export default function StudyWithMeTimer({
   const [customFocus, setCustomFocus] = useState(timerConfig.focusTime);
   const [customShort, setCustomShort] = useState(timerConfig.shortBreakTime);
   const [customLong, setCustomLong] = useState(timerConfig.longBreakTime);
+  const [customExam, setCustomExam] = useState(timerConfig.examTime || 60);
   const [customLongInterval, setCustomLongInterval] = useState(timerConfig.longBreakInterval || 4);
 
   // References for robust background delta-timing
   const workerRef = useRef(null);
   const endTimeRef = useRef(null);
+  const flowtimeStartRef = useRef(null);
+  const flowtimeAccumRef = useRef(0);
   const timeLeftRef = useRef(timeLeft);
   timeLeftRef.current = timeLeft;
 
@@ -102,16 +126,44 @@ export default function StudyWithMeTimer({
     }
   }, [activeTask]);
 
-  // Reset time left when mode or duration config changes while NOT running
+  // Notify phase changes to parent (for auto-transitions of music & scene)
+  useEffect(() => {
+    if (onPhaseChange) {
+      if (mode === 'shortBreak') onPhaseChange('shortBreak');
+      else if (mode === 'longBreak') onPhaseChange('longBreak');
+      else onPhaseChange('study');
+    }
+  }, [mode]);
+
+  // Reset time left when mode changes while NOT running
   useEffect(() => {
     if (!isRunning) {
-      let duration = timerConfig.focusTime * 60;
-      if (mode === 'shortBreak') duration = timerConfig.shortBreakTime * 60;
-      else if (mode === 'longBreak') duration = timerConfig.longBreakTime * 60;
-      setTimeLeft(duration);
-      timeLeftRef.current = duration;
+      if (mode === 'focus') {
+        const d = timerConfig.focusTime * 60;
+        setTimeLeft(d);
+        timeLeftRef.current = d;
+      } else if (mode === 'ultradian') {
+        const d = 90 * 60;
+        setTimeLeft(d);
+        timeLeftRef.current = d;
+      } else if (mode === 'exam') {
+        const d = (timerConfig.examTime || 60) * 60;
+        setTimeLeft(d);
+        timeLeftRef.current = d;
+      } else if (mode === 'shortBreak') {
+        const d = timerConfig.shortBreakTime * 60;
+        setTimeLeft(d);
+        timeLeftRef.current = d;
+      } else if (mode === 'longBreak') {
+        const d = timerConfig.longBreakTime * 60;
+        setTimeLeft(d);
+        timeLeftRef.current = d;
+      } else if (mode === 'flowtime') {
+        setFlowtimeSeconds(0);
+        flowtimeAccumRef.current = 0;
+      }
     }
-  }, [mode, timerConfig.focusTime, timerConfig.shortBreakTime, timerConfig.longBreakTime]);
+  }, [mode, timerConfig.focusTime, timerConfig.shortBreakTime, timerConfig.longBreakTime, timerConfig.examTime]);
 
   // Initialize Web Worker ticker once
   useEffect(() => {
@@ -120,7 +172,7 @@ export default function StudyWithMeTimer({
       worker = createTimerWorker();
       workerRef.current = worker;
       worker.onmessage = (e) => {
-        if (e.data === 'tick' && endTimeRef.current) {
+        if (e.data === 'tick') {
           syncTimer();
         }
       };
@@ -136,7 +188,7 @@ export default function StudyWithMeTimer({
     };
   }, []);
 
-  // Main-thread fallback interval (in case worker is not available)
+  // Main-thread fallback interval
   useEffect(() => {
     let interval = null;
     if (isRunning) {
@@ -147,10 +199,20 @@ export default function StudyWithMeTimer({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRunning]);
+  }, [isRunning, mode]);
 
-  // High-accuracy timestamp sync function
+  // High-accuracy timestamp sync function (Count-down vs Count-up Flowtime)
   const syncTimer = () => {
+    // 1. Flowtime stopwatch count-up logic
+    if (mode === 'flowtime') {
+      if (!flowtimeStartRef.current) return;
+      const now = Date.now();
+      const elapsed = flowtimeAccumRef.current + Math.floor((now - flowtimeStartRef.current) / 1000);
+      setFlowtimeSeconds(elapsed);
+      return;
+    }
+
+    // 2. Countdown logic (focus, ultradian, exam, breaks)
     if (!endTimeRef.current) return;
     const now = Date.now();
     const diff = endTimeRef.current - now;
@@ -168,10 +230,10 @@ export default function StudyWithMeTimer({
     }
   };
 
-  // Immediate resync upon returning to tab or window focus (instant zero-lag recovery)
+  // Immediate resync upon returning to tab or window focus
   useEffect(() => {
     const handleVisibilityOrFocus = () => {
-      if (isRunning && endTimeRef.current) {
+      if (isRunning) {
         syncTimer();
       }
     };
@@ -185,15 +247,16 @@ export default function StudyWithMeTimer({
       window.removeEventListener('focus', handleVisibilityOrFocus);
       window.removeEventListener('pageshow', handleVisibilityOrFocus);
     };
-  }, [isRunning]);
+  }, [isRunning, mode]);
 
   // Dynamic Browser Tab Title Countdown
   useEffect(() => {
     if (isRunning) {
-      const mins = Math.floor(timeLeft / 60);
-      const secs = timeLeft % 60;
+      const displaySecs = mode === 'flowtime' ? flowtimeSeconds : timeLeft;
+      const mins = Math.floor(displaySecs / 60);
+      const secs = displaySecs % 60;
       const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-      const modeLabel = mode === 'focus' ? 'Focus' : mode === 'shortBreak' ? 'Break' : 'Long Break';
+      const modeLabel = mode === 'flowtime' ? 'Flowtime' : mode.includes('Break') ? 'Rest' : 'Study';
       document.title = `(${formatted}) ${modeLabel} · The White Room`;
     } else {
       document.title = 'The White Room | High-Aesthetic Anime Focus Sanctuary';
@@ -202,7 +265,7 @@ export default function StudyWithMeTimer({
     return () => {
       document.title = 'The White Room | High-Aesthetic Anime Focus Sanctuary';
     };
-  }, [timeLeft, isRunning, mode]);
+  }, [timeLeft, flowtimeSeconds, isRunning, mode]);
 
   // Session completion trigger
   const handleComplete = () => {
@@ -210,45 +273,46 @@ export default function StudyWithMeTimer({
     endTimeRef.current = null;
     if (workerRef.current) workerRef.current.postMessage('stop');
 
-    focusAudioSuite.playSessionChime();
+    const isStudyPhase = ['focus', 'ultradian', 'exam'].includes(mode);
 
-    // Desktop Notification if permitted
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      try {
-        new Notification(mode === 'focus' ? 'Focus Session Complete!' : 'Break Finished!', {
-          body: mode === 'focus' ? 'Masterpiece focus logged. Time for a well-deserved break.' : 'Break is over. Ready to begin your next focus round?',
-          icon: '/favicon.ico'
-        });
-      } catch (e) {}
-    }
+    if (isStudyPhase) {
+      focusAudioSuite.playRestChime();
 
-    if (mode === 'focus') {
       try {
         confetti({
-          particleCount: 75,
-          spread: 65,
+          particleCount: 85,
+          spread: 70,
           origin: { y: 0.6 },
           colors: [scene?.accentColor || '#fbbf24', '#ffffff', '#38bdf8']
         });
       } catch (e) {}
 
+      const durationMinutes = mode === 'ultradian' 
+        ? 90 
+        : mode === 'exam' 
+          ? (timerConfig.examTime || 60) 
+          : timerConfig.focusTime;
+
       const nextCount = sessionCount + 1;
       setSessionCount(nextCount);
 
-      if (onSessionComplete) onSessionComplete({
-        id: `sess-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        durationMinutes: timerConfig.focusTime,
-        taskName: activeTask ? activeTask.title : 'White Room Focus',
-        category: activeTask ? activeTask.category : 'Curriculum',
-        mood: 'calm',
-        userComment: ''
-      });
+      if (onSessionComplete) {
+        onSessionComplete({
+          id: `sess-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          durationMinutes,
+          taskName: activeTask ? activeTask.title : `${currentSubject} Focus`,
+          category: currentSubject,
+          mood: 'calm',
+          userComment: ''
+        });
+      }
 
       if (activeTask && onTaskPomodoroIncrement) {
         onTaskPomodoroIncrement(activeTask.id);
       }
 
+      // Check if long break or short break
       if (nextCount % (timerConfig.longBreakInterval || 4) === 0) {
         setMode('longBreak');
         const nextDuration = timerConfig.longBreakTime * 60;
@@ -261,6 +325,8 @@ export default function StudyWithMeTimer({
         timeLeftRef.current = nextDuration;
       }
     } else {
+      // Break finished -> return to study mode
+      focusAudioSuite.playStudyChime();
       setMode('focus');
       const nextDuration = timerConfig.focusTime * 60;
       setTimeLeft(nextDuration);
@@ -268,18 +334,69 @@ export default function StudyWithMeTimer({
     }
   };
 
+  // Flowtime session manual completion / logging
+  const handleLogFlowtimeSession = () => {
+    if (flowtimeSeconds < 30) return;
+    setIsRunning(false);
+    flowtimeStartRef.current = null;
+    if (workerRef.current) workerRef.current.postMessage('stop');
+
+    focusAudioSuite.playRestChime();
+
+    try {
+      confetti({
+        particleCount: 70,
+        spread: 60,
+        origin: { y: 0.6 },
+        colors: ['#a855f7', '#ffffff', '#fbbf24']
+      });
+    } catch (e) {}
+
+    const durationMinutes = Math.max(1, Math.round(flowtimeSeconds / 60));
+    const nextCount = sessionCount + 1;
+    setSessionCount(nextCount);
+
+    if (onSessionComplete) {
+      onSessionComplete({
+        id: `flow-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        durationMinutes,
+        taskName: activeTask ? activeTask.title : `${currentSubject} Flowtime`,
+        category: currentSubject,
+        mood: 'flow',
+        userComment: 'Logged from Flowtime stopwatch'
+      });
+    }
+
+    if (activeTask && onTaskPomodoroIncrement) {
+      onTaskPomodoroIncrement(activeTask.id);
+    }
+
+    setFlowtimeSeconds(0);
+    flowtimeAccumRef.current = 0;
+    setMode('shortBreak');
+  };
+
   const toggleTimer = () => {
     if (isRunning) {
       // Pause
       setIsRunning(false);
-      endTimeRef.current = null;
+      if (mode === 'flowtime') {
+        if (flowtimeStartRef.current) {
+          flowtimeAccumRef.current += Math.floor((Date.now() - flowtimeStartRef.current) / 1000);
+          flowtimeStartRef.current = null;
+        }
+      } else {
+        endTimeRef.current = null;
+      }
       if (workerRef.current) workerRef.current.postMessage('stop');
     } else {
       // Start
-      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-        Notification.requestPermission().catch(() => {});
+      if (mode === 'flowtime') {
+        flowtimeStartRef.current = Date.now();
+      } else {
+        endTimeRef.current = Date.now() + timeLeftRef.current * 1000;
       }
-      endTimeRef.current = Date.now() + timeLeftRef.current * 1000;
       setIsRunning(true);
       if (workerRef.current) workerRef.current.postMessage('start');
     }
@@ -288,29 +405,38 @@ export default function StudyWithMeTimer({
   const resetTimer = () => {
     setIsRunning(false);
     endTimeRef.current = null;
+    flowtimeStartRef.current = null;
+    flowtimeAccumRef.current = 0;
     if (workerRef.current) workerRef.current.postMessage('stop');
 
-    let initial = timerConfig.focusTime * 60;
-    if (mode === 'shortBreak') initial = timerConfig.shortBreakTime * 60;
-    else if (mode === 'longBreak') initial = timerConfig.longBreakTime * 60;
+    if (mode === 'flowtime') {
+      setFlowtimeSeconds(0);
+    } else {
+      let initial = timerConfig.focusTime * 60;
+      if (mode === 'ultradian') initial = 90 * 60;
+      else if (mode === 'exam') initial = (timerConfig.examTime || 60) * 60;
+      else if (mode === 'shortBreak') initial = timerConfig.shortBreakTime * 60;
+      else if (mode === 'longBreak') initial = timerConfig.longBreakTime * 60;
 
-    setTimeLeft(initial);
-    timeLeftRef.current = initial;
+      setTimeLeft(initial);
+      timeLeftRef.current = initial;
+    }
   };
 
   const skipTimer = () => {
     setIsRunning(false);
     endTimeRef.current = null;
+    flowtimeStartRef.current = null;
     if (workerRef.current) workerRef.current.postMessage('stop');
 
-    if (mode === 'focus') {
-      setMode('shortBreak');
-      const nextTime = timerConfig.shortBreakTime * 60;
+    if (mode.includes('Break')) {
+      setMode('focus');
+      const nextTime = timerConfig.focusTime * 60;
       setTimeLeft(nextTime);
       timeLeftRef.current = nextTime;
     } else {
-      setMode('focus');
-      const nextTime = timerConfig.focusTime * 60;
+      setMode('shortBreak');
+      const nextTime = timerConfig.shortBreakTime * 60;
       setTimeLeft(nextTime);
       timeLeftRef.current = nextTime;
     }
@@ -319,7 +445,6 @@ export default function StudyWithMeTimer({
   const handleTaskSubmit = (e) => {
     e.preventDefault();
     if (!taskInput.trim()) return;
-
     const parsedTarget = taskTargetSessions.trim() ? Number(taskTargetSessions) : null;
     if (onSetActiveTaskTitle) {
       onSetActiveTaskTitle(taskInput.trim(), parsedTarget, taskRank);
@@ -329,7 +454,6 @@ export default function StudyWithMeTimer({
   const handleSaveActiveTaskEdit = (e) => {
     e.preventDefault();
     if (!activeTask || !onUpdateActiveTask) return;
-
     const parsedTarget = editTarget.trim() ? Number(editTarget) : null;
     onUpdateActiveTask({
       title: editTitle.trim() || activeTask.title,
@@ -345,8 +469,10 @@ export default function StudyWithMeTimer({
     else setCardStyle('glass');
   };
 
-  const mins = Math.floor(timeLeft / 60);
-  const secs = timeLeft % 60;
+  // Format display numbers
+  const displaySeconds = mode === 'flowtime' ? flowtimeSeconds : timeLeft;
+  const mins = Math.floor(displaySeconds / 60);
+  const secs = displaySeconds % 60;
   const formattedTime = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
   const cardClasses = {
@@ -363,85 +489,56 @@ export default function StudyWithMeTimer({
   };
 
   return (
-    <div className="relative max-w-lg w-full mx-auto select-none">
+    <div className="relative max-w-xl w-full mx-auto select-none">
       
       {/* Timer Container with Customizable Transparency */}
-      <div className={`rounded-3xl p-6 sm:p-8 text-center text-slate-100 transition-all duration-300 space-y-6 ${cardClasses}`}>
+      <div className={`rounded-3xl p-6 sm:p-8 text-center text-slate-100 transition-all duration-300 space-y-5 ${cardClasses}`}>
         
-        {/* Mode Selector Capsule + Transparency Switcher */}
+        {/* Mode Selector Capsule: Pomodoro, Flowtime Stopwatch, 90m Ultradian, Exam & Breaks */}
         <div className="flex items-center justify-center space-x-2">
-          <div className="inline-flex items-center p-1.5 rounded-full bg-black/45 backdrop-blur-md border border-white/10 font-sans text-xs sm:text-sm">
-            <button
-              onClick={() => {
-                if (mode !== 'focus') {
-                  setMode('focus');
-                  setIsRunning(false);
-                  endTimeRef.current = null;
-                  if (workerRef.current) workerRef.current.postMessage('stop');
-                  setTimeLeft(timerConfig.focusTime * 60);
-                  timeLeftRef.current = timerConfig.focusTime * 60;
-                }
-              }}
-              className={`px-4 sm:px-5 py-1.5 rounded-full transition-all duration-200 ${
-                mode === 'focus'
-                  ? 'bg-white/25 text-white font-semibold shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Pomodoro
-            </button>
-            <button
-              onClick={() => {
-                if (mode !== 'shortBreak') {
-                  setMode('shortBreak');
-                  setIsRunning(false);
-                  endTimeRef.current = null;
-                  if (workerRef.current) workerRef.current.postMessage('stop');
-                  setTimeLeft(timerConfig.shortBreakTime * 60);
-                  timeLeftRef.current = timerConfig.shortBreakTime * 60;
-                }
-              }}
-              className={`px-4 sm:px-5 py-1.5 rounded-full transition-all duration-200 ${
-                mode === 'shortBreak'
-                  ? 'bg-white/25 text-white font-semibold shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Short Break
-            </button>
-            <button
-              onClick={() => {
-                if (mode !== 'longBreak') {
-                  setMode('longBreak');
-                  setIsRunning(false);
-                  endTimeRef.current = null;
-                  if (workerRef.current) workerRef.current.postMessage('stop');
-                  setTimeLeft(timerConfig.longBreakTime * 60);
-                  timeLeftRef.current = timerConfig.longBreakTime * 60;
-                }
-              }}
-              className={`px-4 sm:px-5 py-1.5 rounded-full transition-all duration-200 ${
-                mode === 'longBreak'
-                  ? 'bg-white/25 text-white font-semibold shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Long Break
-            </button>
+          <div className="inline-flex items-center p-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 font-sans text-xs overflow-x-auto max-w-full">
+            {[
+              { id: 'focus', label: 'Pomodoro' },
+              { id: 'flowtime', label: 'Flowtime' },
+              { id: 'ultradian', label: '90m Ultradian' },
+              { id: 'exam', label: 'Exam' },
+              { id: 'shortBreak', label: 'Rest' },
+              { id: 'longBreak', label: 'Long Rest' }
+            ].map((m) => (
+              <button
+                key={m.id}
+                onClick={() => {
+                  if (mode !== m.id) {
+                    setIsRunning(false);
+                    endTimeRef.current = null;
+                    flowtimeStartRef.current = null;
+                    if (workerRef.current) workerRef.current.postMessage('stop');
+                    setMode(m.id);
+                  }
+                }}
+                className={`px-3 sm:px-3.5 py-1 rounded-full transition-all duration-200 text-xs flex-shrink-0 ${
+                  mode === m.id
+                    ? 'bg-white text-black font-bold shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
           </div>
 
-          {/* Quick Transparency Switcher Toggle */}
+          {/* Card Transparency Switcher */}
           <button
             onClick={cycleCardStyle}
-            className="p-2 rounded-full bg-black/45 backdrop-blur-md border border-white/10 text-slate-300 hover:text-white transition-all text-xs"
+            className="p-2 rounded-full bg-black/45 backdrop-blur-md border border-white/10 text-slate-300 hover:text-white transition-all text-xs flex-shrink-0"
             title={`Card style: ${cardStyle.toUpperCase()} (Click to toggle Transparent / Glass / Solid)`}
           >
             <Layers className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {/* Big Digits Display (enhanced with deep text drop-shadow for transparent mode readability) */}
-        <div className="py-2">
+        {/* Big Digits Display */}
+        <div className="py-1">
           <div className="font-mono font-bold text-7xl sm:text-8xl md:text-9xl tracking-tight text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.95)]">
             {formattedTime}
           </div>
@@ -452,50 +549,133 @@ export default function StudyWithMeTimer({
               style={{ backgroundColor: scene?.accentColor || '#fbbf24' }} 
             />
             <span className="uppercase tracking-widest text-[11px] font-medium">
-              {isRunning ? 'Flow State Active (Accurate)' : 'Ready'}
+              {isRunning 
+                ? (mode === 'flowtime' ? 'Stopwatch Flow Active' : 'Flow State Active') 
+                : 'Ready'}
             </span>
             <span className="text-slate-400">·</span>
             <span className="text-slate-300">Round #{sessionCount + 1}</span>
+            <span className="text-slate-400">·</span>
+            
+            {/* Subject Tag Pill Selector */}
+            <div className="relative inline-block">
+              <button
+                type="button"
+                onClick={() => setIsSubjectDropdownOpen(!isSubjectDropdownOpen)}
+                className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-[11px] font-medium text-amber-200 transition-colors"
+                title="Click to assign or change active study subject"
+              >
+                <Tag className="w-2.5 h-2.5 text-amber-300" />
+                <span>#{currentSubject}</span>
+                <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+              </button>
+
+              {/* Subject Dropdown Menu */}
+              {isSubjectDropdownOpen && (
+                <div className="absolute top-7 left-1/2 -translate-x-1/2 z-50 w-52 p-2 rounded-2xl bg-neutral-950/95 border border-white/20 shadow-2xl backdrop-blur-xl text-left text-xs font-sans animate-in fade-in zoom-in-95">
+                  <div className="text-[10px] text-slate-400 uppercase tracking-wider px-2 py-1 font-semibold">
+                    Select Study Subject
+                  </div>
+                  <div className="space-y-1 max-h-36 overflow-y-auto">
+                    {DEFAULT_SUBJECTS.map((sub) => (
+                      <button
+                        key={sub}
+                        type="button"
+                        onClick={() => {
+                          if (onChangeSubject) onChangeSubject(sub);
+                          setIsSubjectDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-2 py-1.5 rounded-xl transition-all flex items-center justify-between text-xs ${
+                          currentSubject === sub ? 'bg-amber-400/20 text-amber-200 font-semibold' : 'text-slate-300 hover:bg-white/10'
+                        }`}
+                      >
+                        <span>#{sub}</span>
+                        {currentSubject === sub && <CheckCircle2 className="w-3 h-3 text-amber-300" />}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom Subject Input */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (customSubjectInput.trim() && onChangeSubject) {
+                        onChangeSubject(customSubjectInput.trim());
+                        setCustomSubjectInput('');
+                        setIsSubjectDropdownOpen(false);
+                      }
+                    }}
+                    className="mt-2 pt-2 border-t border-white/10 flex items-center space-x-1"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Add custom subject..."
+                      value={customSubjectInput}
+                      onChange={(e) => setCustomSubjectInput(e.target.value)}
+                      className="w-full px-2 py-1 rounded-lg bg-neutral-900 border border-white/10 text-white text-[11px] focus:outline-none focus:border-amber-400"
+                    />
+                    <button
+                      type="submit"
+                      className="px-2 py-1 bg-white text-black font-bold rounded-lg text-[10px]"
+                    >
+                      Set
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
 
         {/* Start / Pause & Quick Controls */}
-        <div className="flex items-center justify-center space-x-4">
+        <div className="flex items-center justify-center space-x-3 sm:space-x-4">
           <button
             onClick={resetTimer}
-            className="p-3.5 rounded-full bg-black/45 hover:bg-black/60 border border-white/15 text-slate-300 hover:text-white transition-all shadow-md active:scale-95 backdrop-blur-md"
+            className="p-3 sm:p-3.5 rounded-full bg-black/45 hover:bg-black/60 border border-white/15 text-slate-300 hover:text-white transition-all shadow-md active:scale-95 backdrop-blur-md"
             title="Reset timer"
           >
-            <RotateCcw className="w-5 h-5" />
+            <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
           <button
             onClick={toggleTimer}
-            className="px-10 sm:px-12 py-3.5 sm:py-4 rounded-full font-sans font-bold text-base sm:text-lg tracking-wider uppercase transition-all shadow-xl active:scale-95 bg-white text-black hover:bg-neutral-100 shadow-white/20"
+            className="px-8 sm:px-12 py-3 sm:py-3.5 rounded-full font-sans font-bold text-base sm:text-lg tracking-wider uppercase transition-all shadow-xl active:scale-95 bg-white text-black hover:bg-neutral-100 shadow-white/20"
           >
             {isRunning ? 'PAUSE' : 'START'}
           </button>
 
-          <button
-            onClick={skipTimer}
-            className="p-3.5 rounded-full bg-black/45 hover:bg-black/60 border border-white/15 text-slate-300 hover:text-white transition-all shadow-md active:scale-95 backdrop-blur-md"
-            title="Skip to next interval"
-          >
-            <SkipForward className="w-5 h-5" />
-          </button>
+          {/* Flowtime Log Button OR Skip to next interval */}
+          {mode === 'flowtime' ? (
+            <button
+              onClick={handleLogFlowtimeSession}
+              disabled={flowtimeSeconds < 30}
+              className="p-3 sm:p-3.5 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/40 text-purple-200 transition-all shadow-md active:scale-95 backdrop-blur-md disabled:opacity-40"
+              title="Log completed flow session & take a break"
+            >
+              <Check className="w-4 h-4 sm:w-5 sm:h-5 text-purple-300" />
+            </button>
+          ) : (
+            <button
+              onClick={skipTimer}
+              className="p-3 sm:p-3.5 rounded-full bg-black/45 hover:bg-black/60 border border-white/15 text-slate-300 hover:text-white transition-all shadow-md active:scale-95 backdrop-blur-md"
+              title="Skip to next interval"
+            >
+              <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+          )}
 
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="p-3.5 rounded-full bg-black/45 hover:bg-black/60 border border-white/15 text-slate-300 hover:text-white transition-all shadow-md active:scale-95 backdrop-blur-md"
+            className="p-3 sm:p-3.5 rounded-full bg-black/45 hover:bg-black/60 border border-white/15 text-slate-300 hover:text-white transition-all shadow-md active:scale-95 backdrop-blur-md"
             title="Timer Settings"
           >
-            <Settings className="w-5 h-5" />
+            <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
         {/* StudyWithMe "I am working on..." Fully Customizable Task Section */}
-        <div className="pt-2 space-y-2">
-          {/* Active Task Pill with Full Custom Controls (NO forced 0/4) */}
+        <div className="pt-1 space-y-2">
           {activeTask ? (
             <div className="max-w-md mx-auto p-2.5 px-4 rounded-2xl bg-black/60 backdrop-blur-xl border border-white/20 text-xs shadow-xl animate-in fade-in duration-200">
               <div className="flex items-center justify-between gap-2">
@@ -514,7 +694,6 @@ export default function StudyWithMeTimer({
 
                 {/* Right: Customizable Progress Counter & Controls */}
                 <div className="flex items-center space-x-1.5 flex-shrink-0">
-                  {/* Sessions badge: only shows target fraction IF target is defined */}
                   <div className="px-2 py-0.5 rounded-lg bg-white/10 font-mono text-amber-300 text-[11px] font-semibold">
                     {activeTask.targetSessions ? (
                       <span>{activeTask.completedSessions}/{activeTask.targetSessions}</span>
@@ -523,7 +702,6 @@ export default function StudyWithMeTimer({
                     )}
                   </div>
 
-                  {/* Decrement session button */}
                   <button
                     type="button"
                     onClick={() => onTaskPomodoroDecrement && onTaskPomodoroDecrement(activeTask.id)}
@@ -533,7 +711,6 @@ export default function StudyWithMeTimer({
                     <Minus className="w-3 h-3" />
                   </button>
 
-                  {/* Increment session button */}
                   <button
                     type="button"
                     onClick={() => onTaskPomodoroIncrement && onTaskPomodoroIncrement(activeTask.id)}
@@ -543,7 +720,6 @@ export default function StudyWithMeTimer({
                     <Plus className="w-3 h-3" />
                   </button>
 
-                  {/* Edit task settings */}
                   <button
                     type="button"
                     onClick={() => setIsEditingTask(!isEditingTask)}
@@ -553,7 +729,6 @@ export default function StudyWithMeTimer({
                     <Edit2 className="w-3 h-3" />
                   </button>
 
-                  {/* Clear / Dismiss Active Task */}
                   <button
                     type="button"
                     onClick={() => onClearActiveTask && onClearActiveTask()}
@@ -624,7 +799,6 @@ export default function StudyWithMeTimer({
               )}
             </div>
           ) : (
-            /* Input form when no active task is set */
             <form onSubmit={handleTaskSubmit} className="relative max-w-md mx-auto">
               <input
                 type="text"
@@ -651,7 +825,7 @@ export default function StudyWithMeTimer({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in">
           <div className="w-full max-w-sm rounded-3xl border border-white/15 bg-neutral-950 p-6 shadow-2xl text-slate-100 space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-white/10 font-sans">
-              <h3 className="font-bold text-base text-white">Timer & Appearance</h3>
+              <h3 className="font-bold text-base text-white">Timer & Modes</h3>
               <button onClick={() => setIsSettingsOpen(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
 
@@ -690,10 +864,10 @@ export default function StudyWithMeTimer({
             </div>
 
             {/* Intervals */}
-            <div className="space-y-4 font-sans text-xs pt-2 border-t border-white/10">
+            <div className="space-y-3 font-sans text-xs pt-2 border-t border-white/10">
               <div>
                 <div className="flex justify-between mb-1">
-                  <span>Pomodoro:</span>
+                  <span>Pomodoro Focus:</span>
                   <span className="text-amber-300 font-bold">{customFocus} mins</span>
                 </div>
                 <input
@@ -741,6 +915,22 @@ export default function StudyWithMeTimer({
 
               <div>
                 <div className="flex justify-between mb-1">
+                  <span>Exam Mock Duration:</span>
+                  <span className="text-amber-300 font-bold">{customExam} mins</span>
+                </div>
+                <input
+                  type="range"
+                  min="15"
+                  max="180"
+                  step="15"
+                  value={customExam}
+                  onChange={(e) => setCustomExam(Number(e.target.value))}
+                  className="w-full accent-amber-400"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between mb-1">
                   <span>Long Break Interval:</span>
                   <span className="text-amber-300 font-bold">Every {customLongInterval} rounds</span>
                 </div>
@@ -770,6 +960,7 @@ export default function StudyWithMeTimer({
                     focusTime: customFocus,
                     shortBreakTime: customShort,
                     longBreakTime: customLong,
+                    examTime: customExam,
                     longBreakInterval: customLongInterval
                   });
                   setIsSettingsOpen(false);

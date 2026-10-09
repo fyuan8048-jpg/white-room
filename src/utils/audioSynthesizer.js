@@ -35,6 +35,7 @@ class NaturalAudioSuite {
     this.initialized = false;
     this.chimeEnabled = true;
     this.analyser = null;
+    this.binauralState = { type: 'none', volume: 0, leftOsc: null, rightOsc: null, gain: null };
   }
 
   init() {
@@ -1154,8 +1155,174 @@ class NaturalAudioSuite {
       this.channels[track].volume = 0;
       this.stopTrack(track);
     });
+    this.stopBinaural();
+  }
+
+  // Pure mathematical binaural beats generator (Stereo Panned)
+  setBinauralBeat(type = 'none', volume = 0.5) {
+    this.ensureContext();
+    if (!this.ctx) return;
+    this.stopBinaural();
+    if (type === 'none' || volume <= 0) return;
+
+    let baseFreq = 200;
+    let diff = 40; // 40Hz Gamma (intense cognitive focus)
+    if (type === 'gamma40') {
+      baseFreq = 216;
+      diff = 40; // 216Hz L, 256Hz R
+    } else if (type === 'alpha10') {
+      baseFreq = 200;
+      diff = 10; // 200Hz L, 210Hz R (Flow & Calm)
+    } else if (type === 'theta6') {
+      baseFreq = 194;
+      diff = 6;  // 194Hz L, 200Hz R (Deep relaxation & Rest)
+    }
+
+    const now = this.ctx.currentTime;
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(volume * 0.16, now);
+
+    const leftOsc = this.ctx.createOscillator();
+    leftOsc.type = 'sine';
+    leftOsc.frequency.setValueAtTime(baseFreq, now);
+
+    const rightOsc = this.ctx.createOscillator();
+    rightOsc.type = 'sine';
+    rightOsc.frequency.setValueAtTime(baseFreq + diff, now);
+
+    if (this.ctx.createStereoPanner) {
+      const leftPan = this.ctx.createStereoPanner();
+      leftPan.pan.setValueAtTime(-1, now);
+      leftOsc.connect(leftPan);
+      leftPan.connect(gain);
+
+      const rightPan = this.ctx.createStereoPanner();
+      rightPan.pan.setValueAtTime(1, now);
+      rightOsc.connect(rightPan);
+      rightPan.connect(gain);
+    } else {
+      leftOsc.connect(gain);
+      rightOsc.connect(gain);
+    }
+
+    gain.connect(this.masterGain);
+    leftOsc.start(now);
+    rightOsc.start(now);
+
+    this.binauralState = {
+      type,
+      volume,
+      leftOsc,
+      rightOsc,
+      gain
+    };
+  }
+
+  stopBinaural() {
+    if (this.binauralState && this.binauralState.leftOsc) {
+      try {
+        this.binauralState.leftOsc.stop();
+        this.binauralState.rightOsc.stop();
+      } catch (e) {}
+      this.binauralState = { type: 'none', volume: 0, leftOsc: null, rightOsc: null, gain: null };
+    }
+  }
+
+  // Gentle Rest & Recovery chime (Warm Major Chord)
+  playRestChime() {
+    if (!this.chimeEnabled) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const chimeGain = this.ctx.createGain();
+    chimeGain.connect(this.masterGain);
+
+    // Warm major pentatonic notes: C5, E5, G5, B5, C6
+    const restNotes = [523.25, 659.25, 783.99, 987.77, 1046.50];
+    restNotes.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+
+      gain.gain.setValueAtTime(0, now + idx * 0.12);
+      gain.gain.linearRampToValueAtTime(0.12 / (idx + 1), now + idx * 0.12 + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.12 + 3.5);
+
+      osc.connect(gain);
+      gain.connect(chimeGain);
+      osc.start(now + idx * 0.12);
+      osc.stop(now + idx * 0.12 + 4.0);
+    });
+  }
+
+  // Sharp Focus & Study start chime
+  playStudyChime() {
+    if (!this.chimeEnabled) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const chimeGain = this.ctx.createGain();
+    chimeGain.connect(this.masterGain);
+
+    const studyNotes = [440, 554.37, 659.25]; // A4, C#5, E5
+    studyNotes.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+
+      gain.gain.setValueAtTime(0, now + idx * 0.08);
+      gain.gain.linearRampToValueAtTime(0.15, now + idx * 0.08 + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.08 + 2.8);
+
+      osc.connect(gain);
+      gain.connect(chimeGain);
+      osc.start(now + idx * 0.08);
+      osc.stop(now + idx * 0.08 + 3.0);
+    });
   }
 }
+
+export const SOUNDSCAPE_PRESETS = [
+  {
+    id: 'tokyo-midnight-rain',
+    name: 'Tokyo Midnight Rain',
+    desc: 'Forest rain, rolling thunder & vintage vinyl',
+    tag: 'Focus Heavy',
+    values: { forestRain: 0.8, thunderstorm: 0.5, vinylCrackle: 0.35, brownNoise: 0.25 }
+  },
+  {
+    id: 'kyoto-bamboo-sanctuary',
+    name: 'Kyoto Bamboo Sanctuary',
+    desc: 'Bamboo water clack, mountain brook & singing bowl',
+    tag: 'Calm Zen',
+    values: { bambooFountain: 0.85, waterStream: 0.55, zenSingingBowl: 0.4, forestWind: 0.2 }
+  },
+  {
+    id: 'midnight-grand-library',
+    name: 'Midnight Grand Library',
+    desc: 'Metronome clock tick, soft typing & velvet pink noise',
+    tag: 'Deep Study',
+    values: { clockTick: 0.4, keyboardTyping: 0.35, pinkNoise: 0.45, cafeAmbience: 0.15 }
+  },
+  {
+    id: 'rainy-vintage-jazz',
+    name: 'Rainy Vintage Jazz Lounge',
+    desc: 'Rhodes electric piano, cafe murmur & warm rain',
+    tag: 'Flow State',
+    values: { jazzRhodes: 0.75, cafeAmbience: 0.35, vinylCrackle: 0.4, rainOnTent: 0.4 }
+  },
+  {
+    id: 'solitary-campfire-night',
+    name: 'Solitary Campfire Night',
+    desc: 'Crackling campfire, nocturnal crickets & ocean swell',
+    tag: 'Night Reflection',
+    values: { campfire: 0.8, nightCrickets: 0.45, oceanWaves: 0.35, forestWind: 0.25 }
+  }
+];
 
 export const naturalAudioSuite = new NaturalAudioSuite();
 export const focusAudioSuite = naturalAudioSuite;

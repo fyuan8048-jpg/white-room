@@ -1,0 +1,178 @@
+import React, { useState } from 'react';
+import { Music, X, Minimize2, Maximize2, ExternalLink, Play, Radio, Plus } from 'lucide-react';
+
+const YoutubeIcon = ({ className = "w-3.5 h-3.5" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+  </svg>
+);
+
+const MEDIA_PRESETS = [
+  {
+    id: 'lofi-girl',
+    title: 'Lofi Girl - Chill Beats',
+    type: 'youtube',
+    url: 'https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1'
+  },
+  {
+    id: 'ghibli-piano',
+    title: 'Studio Ghibli Ambient Piano',
+    type: 'youtube',
+    url: 'https://www.youtube.com/embed/5qap5aO4i9A?autoplay=1'
+  },
+  {
+    id: 'synthwave-radio',
+    title: 'Synthwave Radio - Chillwave',
+    type: 'youtube',
+    url: 'https://www.youtube.com/embed/4xDzrJKXOOY?autoplay=1'
+  },
+  {
+    id: 'spotify-deep-focus',
+    title: 'Spotify - Deep Focus Playlist',
+    type: 'spotify',
+    url: 'https://open.spotify.com/embed/playlist/37i9dQZF1DWZeKCadgRdKQ?utm_source=generator&theme=0'
+  }
+];
+
+export default function MediaEmbedPlayer({
+  isOpen,
+  onClose
+}) {
+  const [activeMedia, setActiveMedia] = useState(MEDIA_PRESETS[0]);
+  const [customInputUrl, setCustomInputUrl] = useState('');
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleCustomSubmit = (e) => {
+    e.preventDefault();
+    if (!customInputUrl.trim()) return;
+
+    let url = customInputUrl.trim();
+    let type = 'youtube';
+
+    // Parse YouTube URLs
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      type = 'youtube';
+      let videoId = '';
+      if (url.includes('youtu.be/')) {
+        videoId = url.split('youtu.be/')[1]?.split('?')[0];
+      } else if (url.includes('v=')) {
+        videoId = url.split('v=')[1]?.split('&')[0];
+      } else if (url.includes('embed/')) {
+        videoId = url.split('embed/')[1]?.split('?')[0];
+      }
+      if (videoId) {
+        url = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+      }
+    } else if (url.includes('spotify.com')) {
+      type = 'spotify';
+      if (!url.includes('/embed/')) {
+        url = url.replace('open.spotify.com/', 'open.spotify.com/embed/');
+      }
+    }
+
+    setActiveMedia({
+      id: `custom-${Date.now()}`,
+      title: 'Custom Stream / Playlist',
+      type,
+      url
+    });
+    setCustomInputUrl('');
+  };
+
+  return (
+    <div className={`fixed z-30 transition-all duration-300 select-none ${
+      isMinimized 
+        ? 'bottom-20 left-5 w-64' 
+        : 'bottom-20 left-5 w-80 sm:w-96'
+    }`}>
+      <div className="rounded-3xl bg-neutral-950/95 border border-white/20 backdrop-blur-2xl p-3.5 shadow-2xl text-slate-100 space-y-3 animate-in fade-in slide-in-from-bottom-4">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs font-sans">
+          <div className="flex items-center space-x-2 overflow-hidden">
+            <div className="p-1.5 rounded-xl bg-rose-500/20 text-rose-300 flex-shrink-0">
+              <YoutubeIcon className="w-3.5 h-3.5" />
+            </div>
+            <div className="truncate">
+              <div className="font-bold text-white text-xs truncate">{activeMedia.title}</div>
+              <div className="text-[10px] text-slate-400">Universal Lofi & Spotify Stream Deck</div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-1 flex-shrink-0">
+            <button
+              onClick={() => setIsMinimized(!isMinimized)}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+              title={isMinimized ? "Expand" : "Minimize"}
+            >
+              {isMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+              title="Close player"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {!isMinimized && (
+          <>
+            {/* Embed Frame */}
+            <div className="w-full h-44 rounded-2xl overflow-hidden bg-black border border-white/10 relative">
+              <iframe
+                src={activeMedia.url}
+                title={activeMedia.title}
+                className="w-full h-full border-0"
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+              />
+            </div>
+
+            {/* Presets Grid */}
+            <div className="grid grid-cols-2 gap-1.5 font-sans text-[11px]">
+              {MEDIA_PRESETS.map((m) => {
+                const isSelected = activeMedia.id === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setActiveMedia(m)}
+                    className={`p-2 rounded-xl border text-left transition-all truncate flex items-center space-x-1.5 ${
+                      isSelected 
+                        ? 'bg-rose-500/20 border-rose-400/50 text-white font-semibold' 
+                        : 'bg-white/5 border-white/10 text-slate-300 hover:border-white/20'
+                    }`}
+                  >
+                    <Radio className={`w-3 h-3 flex-shrink-0 ${isSelected ? 'text-rose-400' : 'text-slate-400'}`} />
+                    <span className="truncate">{m.title}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom URL Input */}
+            <form onSubmit={handleCustomSubmit} className="flex items-center space-x-1.5 font-sans">
+              <input
+                type="url"
+                placeholder="Paste YouTube or Spotify URL..."
+                value={customInputUrl}
+                onChange={(e) => setCustomInputUrl(e.target.value)}
+                className="flex-1 px-3 py-1.5 rounded-xl bg-neutral-900 border border-white/15 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-rose-400"
+              />
+              <button
+                type="submit"
+                className="px-3 py-1.5 rounded-xl bg-white text-black font-bold text-xs hover:bg-neutral-200"
+              >
+                Load
+              </button>
+            </form>
+          </>
+        )}
+
+      </div>
+    </div>
+  );
+}

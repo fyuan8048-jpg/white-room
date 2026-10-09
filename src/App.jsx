@@ -13,12 +13,16 @@ import CustomSoundLoopPlayer from './components/CustomSoundLoopPlayer';
 import AuthModal from './components/AuthModal';
 import BackgroundVideoControls from './components/BackgroundVideoControls';
 import RenameBackgroundModal from './components/RenameBackgroundModal';
+import StudyBuddiesOverlay from './components/StudyBuddiesOverlay';
+import MediaEmbedPlayer from './components/MediaEmbedPlayer';
+import StudyNotebookModal from './components/StudyNotebookModal';
 
 import { ANIME_SCENES } from './utils/artScenes';
 import { FOCUS_PLAYLIST } from './utils/focusTracks';
 import { getInitialData, saveToStorage, loadFromStorage } from './utils/storage';
-import { focusAudioSuite } from './utils/audioSynthesizer';
+import { focusAudioSuite, SOUNDSCAPE_PRESETS } from './utils/audioSynthesizer';
 import { getMediaBlob, deleteMediaBlob } from './utils/mediaDB';
+import { getTimeOfDay, DAY_NIGHT_PROFILES, WEATHER_PROFILES } from './utils/dayNightEngine';
 import { 
   getCurrentUser, 
   logoutUser, 
@@ -123,6 +127,52 @@ export default function App() {
   const [zenMode, setZenMode] = useState(false);
   const [showVideoVisualizer, setShowVideoVisualizer] = useState(true);
   const [bgBrightness, setBgBrightness] = useState(1.0);
+
+  // New Features: Notebook, Buddies, Media Stream Deck & Subject Tagging
+  const [isNotebookOpen, setIsNotebookOpen] = useState(false);
+  const [isBuddiesOpen, setIsBuddiesOpen] = useState(false);
+  const [isMediaEmbedOpen, setIsMediaEmbedOpen] = useState(false);
+
+  const [currentSubject, setCurrentSubject] = useState(() => {
+    return localStorage.getItem('whiteroom_subject') || 'Mathematics';
+  });
+
+  const [subjectStats, setSubjectStats] = useState(() => {
+    return userId ? loadUserData(userId, 'subject_stats', {}) : loadFromStorage('subject_stats', {});
+  });
+
+  const [studyNotes, setStudyNotes] = useState(() => {
+    return userId ? loadUserData(userId, 'study_notes', '') : loadFromStorage('study_notes', '');
+  });
+
+  const [flashcards, setFlashcards] = useState(() => {
+    return userId ? loadUserData(userId, 'flashcards', []) : loadFromStorage('flashcards', []);
+  });
+
+  const [binauralState, setBinauralState] = useState({ type: 'none', volume: 0.5 });
+
+  // Phase Theme & Music Automation (Study vs Rest vs Long Rest)
+  const [phaseConfig, setPhaseConfig] = useState(() => {
+    const defaultPhase = {
+      autoSwitchTheme: true,
+      autoSwitchAudio: true,
+      studySceneId: 'cote-white-room',
+      shortBreakSceneId: 'ghibli-sanctuary-desk',
+      longBreakSceneId: 'ghibli-midnight-library',
+      studyPreset: 'tokyo-midnight-rain',
+      shortBreakPreset: 'kyoto-bamboo-sanctuary',
+      longBreakPreset: 'solitary-campfire-night'
+    };
+    return userId ? loadUserData(userId, 'phase_config', defaultPhase) : loadFromStorage('phase_config', defaultPhase);
+  });
+
+  // Day / Night Atmosphere Engine
+  const [dayNightMode, setDayNightMode] = useState(() => {
+    return localStorage.getItem('whiteroom_daynight_mode') || 'auto';
+  });
+  const [weatherMode, setWeatherMode] = useState(() => {
+    return localStorage.getItem('whiteroom_weather_mode') || 'clear';
+  });
 
   // Music & Audio State
   const [currentTrackIdx, setCurrentTrackIdx] = useState(0);
@@ -232,6 +282,34 @@ export default function App() {
   useEffect(() => {
     saveToStorage('timer_config', timerConfig);
   }, [timerConfig]);
+
+  useEffect(() => {
+    localStorage.setItem('whiteroom_subject', currentSubject);
+  }, [currentSubject]);
+
+  useEffect(() => {
+    if (isSwitchingUserRef.current) return;
+    if (userId) saveUserData(userId, 'subject_stats', subjectStats);
+    else saveToStorage('subject_stats', subjectStats);
+  }, [subjectStats, userId]);
+
+  useEffect(() => {
+    if (isSwitchingUserRef.current) return;
+    if (userId) saveUserData(userId, 'study_notes', studyNotes);
+    else saveToStorage('study_notes', studyNotes);
+  }, [studyNotes, userId]);
+
+  useEffect(() => {
+    if (isSwitchingUserRef.current) return;
+    if (userId) saveUserData(userId, 'flashcards', flashcards);
+    else saveToStorage('flashcards', flashcards);
+  }, [flashcards, userId]);
+
+  useEffect(() => {
+    if (isSwitchingUserRef.current) return;
+    if (userId) saveUserData(userId, 'phase_config', phaseConfig);
+    else saveToStorage('phase_config', phaseConfig);
+  }, [phaseConfig, userId]);
 
   // Auto-dismiss auth toast notification
   useEffect(() => {
@@ -680,6 +758,72 @@ export default function App() {
       totalFocusMinutes: (prev.totalFocusMinutes || 0) + sessionData.durationMinutes,
       sessionsCompleted: (prev.sessionsCompleted || 0) + 1
     }));
+
+    // Record subject-specific focus time
+    const subj = sessionData.category || currentSubject;
+    setSubjectStats(prev => ({
+      ...prev,
+      [subj]: (prev[subj] || 0) + sessionData.durationMinutes
+    }));
+  };
+
+  // Phase transition handler: Auto-transitions scene & audio for Study vs Rest vs Long Rest
+  const handlePhaseChange = (phase) => {
+    if (!phaseConfig?.autoSwitchTheme && !phaseConfig?.autoSwitchAudio) return;
+
+    // 1. Scene theme auto-transition
+    if (phaseConfig?.autoSwitchTheme) {
+      if (phase === 'study' && phaseConfig.studySceneId) {
+        setSceneId(phaseConfig.studySceneId);
+      } else if (phase === 'shortBreak' && phaseConfig.shortBreakSceneId) {
+        setSceneId(phaseConfig.shortBreakSceneId);
+      } else if (phase === 'longBreak' && phaseConfig.longBreakSceneId) {
+        setSceneId(phaseConfig.longBreakSceneId);
+      }
+    }
+
+    // 2. Audio soundscape auto-transition
+    if (phaseConfig?.autoSwitchAudio) {
+      let presetId = null;
+      if (phase === 'study') presetId = phaseConfig.studyPreset;
+      else if (phase === 'shortBreak') presetId = phaseConfig.shortBreakPreset;
+      else if (phase === 'longBreak') presetId = phaseConfig.longBreakPreset;
+
+      if (presetId) {
+        const preset = SOUNDSCAPE_PRESETS.find(p => p.id === presetId);
+        if (preset) {
+          focusAudioSuite.ensureContext();
+          setAcoustics(preset.values);
+          Object.keys(preset.values).forEach(k => {
+            focusAudioSuite.setVolume(k, preset.values[k]);
+          });
+        }
+      }
+    }
+  };
+
+  const handleBinauralChange = (type, volume) => {
+    setBinauralState({ type, volume });
+    focusAudioSuite.setBinauralBeat(type, volume);
+  };
+
+  // Dynamic Day/Night & Weather Ambient Profiles
+  const actualTimeOfDay = getTimeOfDay();
+  const effectiveTime = dayNightMode === 'auto' ? actualTimeOfDay : dayNightMode;
+  const dayNightProfile = DAY_NIGHT_PROFILES[effectiveTime] || DAY_NIGHT_PROFILES.day;
+  const weatherProfile = WEATHER_PROFILES[weatherMode] || WEATHER_PROFILES.clear;
+
+  const handleCycleDayNight = () => {
+    const modes = ['auto', 'dawn', 'day', 'dusk', 'night'];
+    const nextIdx = (modes.indexOf(dayNightMode) + 1) % modes.length;
+    const next = modes[nextIdx];
+    setDayNightMode(next);
+    localStorage.setItem('whiteroom_daynight_mode', next);
+    const label = next === 'auto' ? `Auto (${DAY_NIGHT_PROFILES[actualTimeOfDay].name})` : DAY_NIGHT_PROFILES[next].name;
+    setAuthToast({
+      type: 'info',
+      message: `Atmosphere: ${label}`
+    });
   };
 
   // Inline Reflection comment on sessions
@@ -771,6 +915,12 @@ export default function App() {
       {/* 2. Soft Ambient Film Overlay (subtler in Zen for wallpaper clarity) */}
       <div className={`fixed inset-0 z-0 transition-colors duration-1000 ${zenMode ? 'bg-black/15' : (currentScene.overlay || 'bg-black/35')}`} />
 
+      {/* Dynamic Day/Night & Weather Atmosphere Grading */}
+      <div 
+        className={`fixed inset-0 pointer-events-none z-0 transition-all duration-1000 ${dayNightProfile.overlayClass} ${weatherProfile.overlayClass}`}
+        style={{ backdropFilter: `${dayNightProfile.colorFilter} ${weatherProfile.colorFilter}` }}
+      />
+
       {/* 3. Top Navigation Bar (COMPLETELY HIDDEN in Zen Mode) */}
       {!zenMode && (
         <Header
@@ -816,6 +966,9 @@ export default function App() {
               onTaskPomodoroDecrement={handleDecrementTaskPomodoro}
               onSessionComplete={handleSessionComplete}
               scene={currentScene}
+              onPhaseChange={handlePhaseChange}
+              currentSubject={currentSubject}
+              onChangeSubject={setCurrentSubject}
             />
           </div>
         )}
@@ -889,6 +1042,13 @@ export default function App() {
           showVideoVisualizer={showVideoVisualizer}
           onToggleVideoVisualizer={() => setShowVideoVisualizer(!showVideoVisualizer)}
           onOpenRenameScene={(scene) => setSceneToRename(scene)}
+          onOpenNotebook={() => setIsNotebookOpen(true)}
+          isBuddiesOpen={isBuddiesOpen}
+          onToggleBuddies={() => setIsBuddiesOpen(!isBuddiesOpen)}
+          isMediaEmbedOpen={isMediaEmbedOpen}
+          onToggleMediaEmbed={() => setIsMediaEmbedOpen(!isMediaEmbedOpen)}
+          dayNightProfile={dayNightProfile}
+          onToggleDayNight={handleCycleDayNight}
         />
       )}
 
@@ -944,7 +1104,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 16 Natural Soundscapes + Custom MP4 Video Sounds Matrix Modal */}
+      {/* 24 Natural Soundscapes + Binaural Beats + Phase Automation + Custom Sounds Modal */}
       <SoundMixerModal
         isOpen={isSoundModalOpen}
         onClose={() => setIsSoundModalOpen(false)}
@@ -958,6 +1118,11 @@ export default function App() {
         onAddCustomSound={handleAddCustomSound}
         onUpdateCustomSoundVolume={handleUpdateCustomSoundVolume}
         onDeleteCustomSound={handleDeleteCustomSound}
+        binauralState={binauralState}
+        onBinauralChange={handleBinauralChange}
+        phaseConfig={phaseConfig}
+        onUpdatePhaseConfig={setPhaseConfig}
+        allScenes={allScenes}
       />
 
       {/* Custom Art & Animated Video Live Wallpaper Uploader Modal */}
@@ -1012,6 +1177,30 @@ export default function App() {
         onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={handleAuthSuccess}
         currentUser={currentUser}
+      />
+
+      {/* Anime Study Companions Overlay */}
+      <StudyBuddiesOverlay
+        isOpen={isBuddiesOpen}
+        onClose={() => setIsBuddiesOpen(false)}
+        currentSceneAccent={currentScene.accentColor}
+      />
+
+      {/* Embedded Ambient Media (YouTube Lo-Fi / Spotify Radio) */}
+      <MediaEmbedPlayer
+        isOpen={isMediaEmbedOpen}
+        onClose={() => setIsMediaEmbedOpen(false)}
+      />
+
+      {/* In-App Study Notes & Memory Flashcards */}
+      <StudyNotebookModal
+        isOpen={isNotebookOpen}
+        onClose={() => setIsNotebookOpen(false)}
+        currentSubject={currentSubject}
+        notes={studyNotes}
+        onSaveNotes={setStudyNotes}
+        flashcards={flashcards && flashcards.length > 0 ? flashcards : undefined}
+        onUpdateFlashcards={setFlashcards}
       />
 
     </div>
