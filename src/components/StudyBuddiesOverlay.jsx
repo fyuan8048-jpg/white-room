@@ -12,9 +12,18 @@ import {
   Trash2, 
   Bot, 
   ArrowLeft,
-  RefreshCw,
-  Sparkle
+  Key,
+  RotateCcw,
+  ExternalLink,
+  ShieldAlert,
+  CheckCircle2,
+  Cpu
 } from 'lucide-react';
+import { 
+  generateCompanionReply, 
+  getGeminiApiKey, 
+  setGeminiApiKey 
+} from '../utils/companionChatEngine';
 
 export const PSYCHOLOGICAL_ANIME_BUDDIES = [
   {
@@ -27,14 +36,7 @@ export const PSYCHOLOGICAL_ANIME_BUDDIES = [
     quote: 'Quiet the mind. The equation solves itself in stillness.',
     accent: '#38bdf8',
     avatar: 'https://s4.anilist.co/file/anilistcdn/character/large/b123212-ewZgUQr9vvEM.png',
-    baseMinutes: 52,
-    dialogueResponses: [
-      "Distraction is merely an emotional reaction to friction. Discard the emotion, and continue.",
-      "The White Room taught me one fundamental truth: limits are cognitive illusions created by weak resolve.",
-      "Calculate your remaining tasks not with anxiety, but as chess pieces positioning for checkmate.",
-      "To win against exhaustion, you don't struggle against it. You simply accept the monotony and execute anyway.",
-      "Focus is not a feeling, it is a binary state. Either you are working, or you are yielding to mediocrity."
-    ]
+    baseMinutes: 52
   },
   {
     id: 'light',
@@ -46,14 +48,7 @@ export const PSYCHOLOGICAL_ANIME_BUDDIES = [
     quote: 'I will achieve perfection. Every second spent without focus is a second lost.',
     accent: '#f59e0b',
     avatar: 'https://s4.anilist.co/file/anilistcdn/character/large/b80-26EhwSsSqQ50.png',
-    baseMinutes: 68,
-    dialogueResponses: [
-      "A second of procrastination is a fracture in perfection. Fix your posture and write with purpose.",
-      "Others rely on luck or last-minute panic. I rely on relentless, premeditated preparation.",
-      "If you cannot conquer a 25-minute study interval, how do you expect to conquer the challenges ahead?",
-      "Eliminate every irrelevant thought. What matters right now is total mastery of the subject in front of you.",
-      "Discipline separates those who merely wish from those who dictate reality."
-    ]
+    baseMinutes: 68
   },
   {
     id: 'lawliet',
@@ -65,14 +60,7 @@ export const PSYCHOLOGICAL_ANIME_BUDDIES = [
     quote: 'There is no victory without thorough analysis. Let us solve this problem completely.',
     accent: '#a855f7',
     avatar: 'https://s4.anilist.co/file/anilistcdn/character/large/b71-1W4panC53vfs.png',
-    baseMinutes: 84,
-    dialogueResponses: [
-      "There is a 97.4% probability that taking an unscheduled break right now will derail your flow state.",
-      "When a problem seems impossible, break it into smaller deductions. The truth always reveals itself.",
-      "My cognitive stamina doesn't come from motivation. It comes from genuine curiosity and obsessive focus.",
-      "Take a deep breath. A sugar cube or tea helps brain glucose, but the real solution is rigorous thinking.",
-      "Do not guess. Verify every step of your logic until doubt is mathematically impossible."
-    ]
+    baseMinutes: 84
   },
   {
     id: 'johan',
@@ -84,14 +72,7 @@ export const PSYCHOLOGICAL_ANIME_BUDDIES = [
     quote: 'The greatest power is total emotional composure. Master yourself first.',
     accent: '#ef4444',
     avatar: 'https://s4.anilist.co/file/anilistcdn/character/large/b719-y984mDWyGf5n.jpg',
-    baseMinutes: 45,
-    dialogueResponses: [
-      "Why do you fear the difficult work? Chaos only exists in the mind when you resist silence.",
-      "When everyone else panics under pressure, the one who remains still controls the outcome.",
-      "Close your eyes for three seconds. Let the noise vanish. Now, begin without hesitation.",
-      "True discipline is quiet. It makes no speeches, demands no praise, and never hesitates.",
-      "Look closely at the challenge before you. It is merely symbols on paper. It has no power unless you give it fear."
-    ]
+    baseMinutes: 45
   },
   {
     id: 'lelouch',
@@ -103,14 +84,7 @@ export const PSYCHOLOGICAL_ANIME_BUDDIES = [
     quote: 'If the King does not lead, how can he expect his subordinates to follow?',
     accent: '#8b5cf6',
     avatar: 'https://s4.anilist.co/file/anilistcdn/character/large/b417-gVLmIJu9phcK.png',
-    baseMinutes: 39,
-    dialogueResponses: [
-      "I command you to seize control of your concentration! Excuses are for the conquered.",
-      "Treat your curriculum like a battlefield. Identify the critical leverage point, and strike with all your force.",
-      "The only ones who should study are those who are prepared to master the craft completely.",
-      "Every minute of focused intellect is a piece moved on your strategic chessboard.",
-      "Never look back with regret during a study session. Forward momentum is the only tactical command."
-    ]
+    baseMinutes: 39
   },
   {
     id: 'dazai',
@@ -122,14 +96,7 @@ export const PSYCHOLOGICAL_ANIME_BUDDIES = [
     quote: 'Discipline is not about punishment; it is about staying true to your intellect.',
     accent: '#10b981',
     avatar: 'https://s4.anilist.co/file/anilistcdn/character/large/b89198-qKmRTw4Y3PRC.png',
-    baseMinutes: 61,
-    dialogueResponses: [
-      "Ah, the melancholy of hard work! But you know, intellectual breakthrough feels rather delightful.",
-      "Don't take life too seriously, but do take your own potential seriously. Now, let's write something brilliant.",
-      "Procrastination is so terribly predictable. Why not surprise yourself and finish this chapter right now?",
-      "A quiet room, a sharp mind, and a cup of black coffee. What more could an intellectual desire?",
-      "Even if the world is absurd, your intellect is your own sanctuary. Honor it with focus."
-    ]
+    baseMinutes: 61
   },
   {
     id: 'kaneki',
@@ -141,21 +108,17 @@ export const PSYCHOLOGICAL_ANIME_BUDDIES = [
     quote: 'I would rather suffer through the discipline than suffer the regret of quitting.',
     accent: '#64748b',
     avatar: 'https://s4.anilist.co/file/anilistcdn/character/large/b87275-mb13EWZBdbh3.png',
-    baseMinutes: 30,
-    dialogueResponses: [
-      "Mental fatigue feels like pain, but it's just your mind expanding its capacity. Keep going.",
-      "I used to retreat when things became overwhelming. But enduring the strain is how you transform.",
-      "Read one more page. Solve one more problem. You are stronger than your impulse to quit.",
-      "In silence, we confront who we truly are. Make your silent hours count.",
-      "Turn your inner turmoil into sharp, undivided concentration. It's the only way forward."
-    ]
+    baseMinutes: 30
   }
 ];
 
 export default function StudyBuddiesOverlay({
   isOpen,
   onClose,
-  currentSceneAccent = '#fbbf24'
+  currentSceneAccent = '#fbbf24',
+  currentSubject = 'General Focus',
+  activeTask = null,
+  focusStats = null
 }) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [elapsedOffset, setElapsedOffset] = useState(0);
@@ -173,6 +136,11 @@ export default function StudyBuddiesOverlay({
   // Active view: 'list' | 'chat' | 'add'
   const [activeView, setActiveView] = useState('list');
   const [selectedBuddyId, setSelectedBuddyId] = useState('ayanokoji');
+  const [isBrainModalOpen, setIsBrainModalOpen] = useState(false);
+
+  // Gemini API Key state
+  const [apiKeyInput, setApiKeyInput] = useState(() => getGeminiApiKey());
+  const [activeApiKey, setActiveApiKey] = useState(() => getGeminiApiKey());
 
   // Interactive chat messages per buddy
   const [chatHistories, setChatHistories] = useState(() => {
@@ -203,7 +171,7 @@ export default function StudyBuddiesOverlay({
   const allBuddies = [...PSYCHOLOGICAL_ANIME_BUDDIES, ...customBuddies];
   const activeBuddy = allBuddies.find(b => b.id === selectedBuddyId) || allBuddies[0];
 
-  // Sync companion timers
+  // Sync companion timers quietly in background
   useEffect(() => {
     if (!isOpen) return;
     const interval = setInterval(() => {
@@ -231,8 +199,23 @@ export default function StudyBuddiesOverlay({
 
   if (!isOpen) return null;
 
-  // Handle Send Message in Chat
-  const handleSendMessage = (textToSend = null) => {
+  // Save / Update Gemini Key
+  const handleSaveApiKey = (e) => {
+    e.preventDefault();
+    setGeminiApiKey(apiKeyInput.trim());
+    setActiveApiKey(apiKeyInput.trim());
+    setIsBrainModalOpen(false);
+  };
+
+  const handleClearApiKey = () => {
+    setGeminiApiKey('');
+    setApiKeyInput('');
+    setActiveApiKey('');
+    setIsBrainModalOpen(false);
+  };
+
+  // Handle Send Message in Chat (Hybrid Dynamic AI / Live Gemini)
+  const handleSendMessage = async (textToSend = null) => {
     const text = (textToSend || messageInput).trim();
     if (!text || !activeBuddy) return;
 
@@ -255,25 +238,24 @@ export default function StudyBuddiesOverlay({
     if (!textToSend) setMessageInput('');
     setIsTyping(true);
 
-    // Simulate authentic psychological in-character response
-    setTimeout(() => {
-      let replyText = "";
-
-      if (activeBuddy.dialogueResponses && activeBuddy.dialogueResponses.length > 0) {
-        // Choose contextually or cycle
-        const responses = activeBuddy.dialogueResponses;
-        const randIdx = Math.floor(Math.random() * responses.length);
-        replyText = responses[randIdx];
-      } else if (activeBuddy.nature) {
-        replyText = `"${activeBuddy.nature}" — Remember our goal. Channel this inquiry directly into decisive progress. What is your next tactical step?`;
-      } else {
-        replyText = `Understood. Maintain mental stillness and let us complete this study block without hesitation.`;
-      }
+    try {
+      const response = await generateCompanionReply({
+        buddy: activeBuddy,
+        userMessage: text,
+        history: updatedList,
+        context: {
+          subject: currentSubject,
+          task: activeTask ? activeTask.title : null,
+          rounds: activeTask?.completedSessions || 0,
+          streak: focusStats?.currentStreak || 1
+        }
+      });
 
       const buddyMsg = {
         id: `msg-reply-${Date.now()}`,
         sender: 'buddy',
-        text: replyText,
+        text: response.text,
+        source: response.source,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
@@ -281,9 +263,27 @@ export default function StudyBuddiesOverlay({
         ...prev,
         [buddyId]: [...(prev[buddyId] || updatedList), buddyMsg]
       }));
-
+    } catch (err) {
+      console.error("Failed to generate companion reply:", err);
+    } finally {
       setIsTyping(false);
-    }, 900);
+    }
+  };
+
+  // Clear Chat History for Current Buddy
+  const handleClearCurrentChat = () => {
+    if (!activeBuddy) return;
+    setChatHistories(prev => ({
+      ...prev,
+      [activeBuddy.id]: [
+        {
+          id: `welcome-${Date.now()}`,
+          sender: 'buddy',
+          text: `"${activeBuddy.quote}" — We are reset and ready. What will we accomplish together next?`,
+          timestamp: 'Now'
+        }
+      ]
+    }));
   };
 
   // Add custom companion
@@ -302,12 +302,6 @@ export default function StudyBuddiesOverlay({
       accent: newCompanion.accent || '#38bdf8',
       avatar: newCompanion.avatar.trim() || 'https://s4.anilist.co/file/anilistcdn/character/large/b123212-ewZgUQr9vvEM.png',
       baseMinutes: 20,
-      dialogueResponses: [
-        `Understood. As your study partner, I expect nothing less than your highest standard of concentration.`,
-        `Let us break down this problem systematically. What is the core obstacle?`,
-        `Discipline is a muscle. Keep pushing through this study session.`,
-        `Stay composed. The only way past mental resistance is through it.`
-      ],
       isCustom: true
     };
 
@@ -335,7 +329,7 @@ export default function StudyBuddiesOverlay({
     {
       id: 'welcome-init',
       sender: 'buddy',
-      text: `${activeBuddy?.quote || "I am studying alongside you."} What is your focus objective today?`,
+      text: `${activeBuddy?.quote || "I am studying right beside you."} I am in your corner for ${currentSubject}. What are we tackling right now?`,
       timestamp: 'Now'
     }
   ];
@@ -344,9 +338,9 @@ export default function StudyBuddiesOverlay({
     <div className={`fixed z-30 transition-all duration-300 select-none ${
       isMinimized 
         ? 'bottom-20 left-6' 
-        : 'top-20 left-6 w-80 sm:w-96 max-h-[82vh]'
+        : 'top-20 left-6 w-84 sm:w-96 max-h-[84vh]'
     }`}>
-      <div className="rounded-3xl glass-card-glow p-4 shadow-2xl text-slate-100 space-y-3 flex flex-col max-h-[82vh] overflow-hidden animate-in fade-in slide-in-from-left-4">
+      <div className="rounded-3xl glass-card-glow p-4 shadow-2xl text-slate-100 space-y-3 flex flex-col max-h-[84vh] overflow-hidden animate-in fade-in slide-in-from-left-4 border border-white/20">
         
         {/* Header */}
         <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs font-sans flex-shrink-0">
@@ -357,22 +351,40 @@ export default function StudyBuddiesOverlay({
             <div className="truncate">
               <div className="font-bold text-white text-xs flex items-center space-x-1.5 truncate">
                 <span className="truncate">
-                  {activeView === 'chat' ? `Discussion: ${activeBuddy?.name}` : 'Psychological Anime Peers'}
+                  {activeView === 'chat' ? `${activeBuddy?.name}` : 'Psychological Anime Peers'}
                 </span>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
               </div>
               <p className="text-[10px] text-slate-400 truncate">
                 {activeView === 'chat' 
-                  ? activeBuddy?.role 
-                  : `${allBuddies.length} Elite Thinkers in Flow`}
+                  ? `${activeBuddy?.anime} · Rooting for your win` 
+                  : `${allBuddies.length} Companions in Flow`}
               </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-1 flex-shrink-0">
+            {activeView === 'chat' && (
+              <button
+                onClick={() => setIsBrainModalOpen(!isBrainModalOpen)}
+                className={`p-1 px-1.5 rounded-lg text-[10px] font-mono flex items-center space-x-1 transition-all ${
+                  activeApiKey
+                    ? 'bg-emerald-500/20 border border-emerald-400/40 text-emerald-300'
+                    : 'bg-white/10 border border-white/15 text-slate-300 hover:text-white'
+                }`}
+                title="Configure AI Brain (Gemini or Local Dynamic Engine)"
+              >
+                <Cpu className="w-3 h-3 text-cyan-300" />
+                <span className="hidden sm:inline">{activeApiKey ? 'Gemini AI' : 'Dynamic AI'}</span>
+              </button>
+            )}
+
             {activeView !== 'list' && (
               <button
-                onClick={() => setActiveView('list')}
+                onClick={() => {
+                  setActiveView('list');
+                  setIsBrainModalOpen(false);
+                }}
                 className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
                 title="Back to companions list"
               >
@@ -395,6 +407,65 @@ export default function StudyBuddiesOverlay({
             </button>
           </div>
         </div>
+
+        {/* Brain Settings Modal Dropdown */}
+        {isBrainModalOpen && (
+          <div className="p-3 rounded-2xl bg-neutral-950/95 border border-cyan-400/30 text-xs font-sans space-y-2 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between text-white font-bold">
+              <span className="flex items-center space-x-1.5">
+                <Key className="w-3.5 h-3.5 text-cyan-400" />
+                <span>AI Brain Configuration</span>
+              </span>
+              <button 
+                onClick={() => setIsBrainModalOpen(false)}
+                className="text-slate-400 hover:text-white p-0.5"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              Default: <strong>Built-in Dynamic AI</strong> (Instant, smart, zero setup).<br/>
+              Optional: Bring your own free <strong>Google Gemini API Key</strong> for full real-time LLM power.
+            </p>
+            <form onSubmit={handleSaveApiKey} className="space-y-2 pt-1">
+              <input
+                type="password"
+                value={apiKeyInput}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+                placeholder="Paste Gemini API Key (AIza...)"
+                className="w-full px-2.5 py-1.5 rounded-xl bg-neutral-900 border border-white/15 text-white text-xs font-mono focus:outline-none focus:border-cyan-400"
+              />
+              <div className="flex items-center justify-between text-[10px]">
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-cyan-400 hover:underline flex items-center space-x-0.5"
+                >
+                  <span>Get free key</span>
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+                <div className="flex items-center space-x-1">
+                  {activeApiKey && (
+                    <button
+                      type="button"
+                      onClick={handleClearApiKey}
+                      className="px-2 py-1 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30"
+                    >
+                      Clear
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    className="px-3 py-1 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-black font-bold"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* Minimized view pill */}
         {isMinimized ? (
@@ -507,7 +578,7 @@ export default function StudyBuddiesOverlay({
                                 className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-semibold transition-all border border-white/10 hover:border-white/25 shadow-sm"
                               >
                                 <MessageSquare className="w-2.5 h-2.5 text-cyan-300" />
-                                <span>Discuss</span>
+                                <span>Talk & Discuss</span>
                               </button>
                             </div>
                           </div>
@@ -521,28 +592,41 @@ export default function StudyBuddiesOverlay({
 
             {/* VIEW 2: INTERACTIVE COMPANION CHAT */}
             {activeView === 'chat' && activeBuddy && (
-              <div className="flex-1 flex flex-col min-h-0 space-y-2 h-[420px]">
+              <div className="flex-1 flex flex-col min-h-0 space-y-2 h-[440px]">
                 
-                {/* Companion Bio Pill */}
-                <div className="p-2.5 rounded-2xl bg-neutral-900/80 border border-white/10 flex items-center space-x-2.5 flex-shrink-0">
-                  <img
-                    src={activeBuddy.avatar}
-                    alt={activeBuddy.name}
-                    className="w-9 h-9 rounded-xl object-cover border border-white/15"
-                  />
-                  <div className="flex-1 overflow-hidden">
-                    <div className="text-xs font-bold text-white truncate">{activeBuddy.name}</div>
-                    <div className="text-[10px] text-amber-300/90 truncate">{activeBuddy.nature}</div>
+                {/* Companion Bio Pill & Clear history */}
+                <div className="p-2.5 rounded-2xl bg-neutral-900/80 border border-white/10 flex items-center justify-between flex-shrink-0">
+                  <div className="flex items-center space-x-2.5 overflow-hidden">
+                    <img
+                      src={activeBuddy.avatar}
+                      alt={activeBuddy.name}
+                      className="w-9 h-9 rounded-xl object-cover border border-white/15 flex-shrink-0"
+                    />
+                    <div className="truncate">
+                      <div className="text-xs font-bold text-white truncate flex items-center space-x-1">
+                        <span>{activeBuddy.name}</span>
+                        <span className="text-[9px] font-normal text-slate-400">({activeBuddy.anime})</span>
+                      </div>
+                      <div className="text-[10px] text-amber-300/90 truncate">{activeBuddy.nature}</div>
+                    </div>
                   </div>
+
+                  <button
+                    onClick={handleClearCurrentChat}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all flex-shrink-0"
+                    title="Reset chat with this companion"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
                 </div>
 
                 {/* Quick Interactive Prompt Pills */}
                 <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 custom-scrollbar text-[10px] flex-shrink-0">
                   {[
-                    "I feel distracted, sharpen my focus.",
-                    "Analyze my study strategy.",
-                    "Explain your philosophy on discipline.",
-                    "How do I conquer cognitive fatigue?"
+                    "I need motivation to win today.",
+                    "Feeling mentally exhausted, talk to me.",
+                    "Analyze my study strategy right now.",
+                    "Hold me accountable, don't let me slack."
                   ].map((prompt, idx) => (
                     <button
                       key={idx}
@@ -563,7 +647,7 @@ export default function StudyBuddiesOverlay({
                         key={msg.id}
                         className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-in fade-in`}
                       >
-                        <div className="flex items-end space-x-1.5 max-w-[85%]">
+                        <div className="flex items-end space-x-1.5 max-w-[88%]">
                           {!isMe && (
                             <img
                               src={activeBuddy.avatar}
@@ -574,26 +658,29 @@ export default function StudyBuddiesOverlay({
                           <div
                             className={`p-2.5 rounded-2xl ${
                               isMe
-                                ? 'bg-amber-400 text-black font-medium rounded-br-sm'
-                                : 'bg-neutral-900 border border-white/15 text-slate-100 rounded-bl-sm'
+                                ? 'bg-amber-400 text-black font-medium rounded-br-sm shadow-md'
+                                : 'bg-neutral-900 border border-white/15 text-slate-100 rounded-bl-sm shadow-sm'
                             }`}
                           >
                             <p className="leading-relaxed text-[11px] select-text">{msg.text}</p>
                           </div>
                         </div>
-                        <span className="text-[9px] text-slate-500 mt-0.5 px-1 font-mono">
-                          {msg.timestamp}
-                        </span>
+                        <div className="flex items-center space-x-1 text-[9px] text-slate-500 mt-0.5 px-1 font-mono">
+                          <span>{msg.timestamp}</span>
+                          {!isMe && msg.source === 'gemini' && (
+                            <span className="text-cyan-400 text-[8px] bg-cyan-950/60 px-1 rounded border border-cyan-800/40">Gemini LLM</span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
 
                   {isTyping && (
-                    <div className="flex items-center space-x-1.5 text-slate-400 text-[10px] italic py-1 px-2">
+                    <div className="flex items-center space-x-1.5 text-slate-400 text-[10px] italic py-1 px-2 animate-in fade-in">
                       <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" />
                       <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce delay-100" />
                       <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce delay-200" />
-                      <span>{activeBuddy.name} is calculating reply...</span>
+                      <span>{activeBuddy.name} is formulating thought...</span>
                     </div>
                   )}
 
@@ -618,7 +705,7 @@ export default function StudyBuddiesOverlay({
                   <button
                     type="submit"
                     disabled={!messageInput.trim()}
-                    className="p-2 rounded-2xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black transition-all"
+                    className="p-2 rounded-2xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black transition-all shadow-md"
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>
@@ -634,7 +721,7 @@ export default function StudyBuddiesOverlay({
                   <span>Create Custom Companion</span>
                 </div>
                 <p className="text-[10px] text-slate-400">
-                  Define their identity, psychological nature, and behavior when studying with you.
+                  Define their identity, psychological nature, and behavior as your study comrade.
                 </p>
 
                 <div className="space-y-2 text-xs">

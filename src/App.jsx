@@ -1184,6 +1184,9 @@ export default function App() {
         isOpen={isBuddiesOpen}
         onClose={() => setIsBuddiesOpen(false)}
         currentSceneAccent={currentScene.accentColor}
+        currentSubject={currentSubject}
+        activeTask={activeTask}
+        focusStats={focusStats}
       />
 
       {/* Embedded Ambient Media (YouTube Lo-Fi / Spotify Radio) */}
