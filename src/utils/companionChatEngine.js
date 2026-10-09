@@ -7,7 +7,7 @@
  */
 
 export const getGeminiApiKey = () => {
-  return localStorage.getItem('whiteroom_gemini_api_key') || '';
+  return localStorage.getItem('whiteroom_gemini_api_key') || (import.meta.env?.VITE_GEMINI_API_KEY || '');
 };
 
 export const setGeminiApiKey = (key) => {
@@ -19,11 +19,10 @@ export const setGeminiApiKey = (key) => {
 };
 
 /**
- * Call Google Gemini REST API
+ * Call Google Gemini REST API with multi-model fallback
  */
 async function callGeminiAPI(buddy, userMessage, history, context, apiKey) {
-  const model = "gemini-1.5-flash";
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const candidateModels = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-1.5-flash"];
 
   const characterPrompt = `You are ${buddy.name} from the psychological anime/manga "${buddy.anime}".
 Role: ${buddy.role}.
@@ -74,27 +73,38 @@ CONSTRAINTS:
   // Append latest user message
   contents.push({ role: 'user', parts: [{ text: userMessage }] });
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents,
-      generationConfig: {
-        temperature: 0.85,
-        maxOutputTokens: 250
-      }
-    })
-  });
+  let lastError = null;
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+  for (const model of candidateModels) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          generationConfig: {
+            temperature: 0.85,
+            maxOutputTokens: 250
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text.trim();
+    } catch (e) {
+      lastError = e;
+      continue;
+    }
   }
 
-  const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Empty response from Gemini");
-  return text.trim();
+  throw lastError || new Error("Gemini response was empty");
 }
 
 /**
