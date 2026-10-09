@@ -12,7 +12,8 @@ import {
   Repeat, 
   X, 
   ChevronUp, 
-  ChevronDown 
+  ChevronDown,
+  Edit2
 } from 'lucide-react';
 
 export default function BackgroundVideoControls({
@@ -22,7 +23,8 @@ export default function BackgroundVideoControls({
   masterVolume,
   zenMode,
   brightness,
-  onBrightnessChange
+  onBrightnessChange,
+  onOpenRenameScene
 }) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1.0);
@@ -155,11 +157,21 @@ export default function BackgroundVideoControls({
           
           {/* Deck Header */}
           <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs">
-            <div className="flex items-center space-x-2">
-              <Film className="w-4 h-4 text-amber-400" />
-              <div className="font-bold text-white text-xs truncate max-w-[170px]">
+            <div className="flex items-center space-x-2 overflow-hidden">
+              <Film className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <div className="font-bold text-white text-xs truncate max-w-[140px]">
                 {currentScene.name || 'Video Wallpaper'}
               </div>
+              {onOpenRenameScene && (
+                <button
+                  type="button"
+                  onClick={() => onOpenRenameScene(currentScene)}
+                  className="p-1 rounded text-slate-400 hover:text-amber-300 hover:bg-white/10 transition-colors flex-shrink-0"
+                  title="Rename this video background"
+                >
+                  <Edit2 className="w-3 h-3" />
+                </button>
+              )}
             </div>
             <button
               onClick={() => setIsExpanded(false)}

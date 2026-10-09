@@ -8,22 +8,29 @@ import {
   Link, 
   Trash2, 
   Check, 
-  Sparkles,
-  Plus,
-  Volume2
+  Sparkles, 
+  Plus, 
+  Volume2, 
+  Edit2, 
+  Palette,
+  RotateCcw
 } from 'lucide-react';
 import { saveMediaBlob } from '../utils/mediaDB';
+import { ANIME_SCENES } from '../utils/artScenes';
 
 export default function ArtUploaderModal({
   isOpen,
   onClose,
-  customScenes,
+  customScenes = [],
   onAddCustomScene,
   onDeleteCustomScene,
   onSelectScene,
-  currentSceneId
+  currentSceneId,
+  onRenameScene,
+  onResetSceneName,
+  onOpenRenameModal
 }) {
-  const [tab, setTab] = useState('upload'); // 'upload' | 'url'
+  const [tab, setTab] = useState('upload'); // 'upload' | 'url' | 'manage'
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Custom Anime Art');
   const [mediaUrl, setMediaUrl] = useState('');
@@ -33,6 +40,10 @@ export default function ArtUploaderModal({
   const [enableSound, setEnableSound] = useState(false);
   const [soundVolume, setSoundVolume] = useState(0.5);
   const [rawFile, setRawFile] = useState(null);
+
+  // Inline editing state for backgrounds list
+  const [editingSceneId, setEditingSceneId] = useState(null);
+  const [inlineEditName, setInlineEditName] = useState('');
 
   if (!isOpen) return null;
 
@@ -44,9 +55,16 @@ export default function ArtUploaderModal({
     const videoDetected = file.type.startsWith('video/') || /\.(mp4|webm|mov|mkv)$/i.test(file.name);
     setIsVideo(videoDetected);
 
-    if (!name) {
-      setName(file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "));
-    }
+    // Humanize file name as default title
+    const cleanTitle = file.name
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[-_]/g, " ")
+      .split(" ")
+      .filter(Boolean)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+
+    setName(cleanTitle || (videoDetected ? 'My Video Sanctuary' : 'My Custom Background'));
 
     const objectUrl = URL.createObjectURL(file);
     setPreviewData(objectUrl);
@@ -58,6 +76,9 @@ export default function ArtUploaderModal({
     setPreviewData(val);
     const videoDetected = /\.(mp4|webm|mov|mkv)($|\?)/i.test(val);
     setIsVideo(videoDetected);
+    if (!name) {
+      setName(videoDetected ? 'Animated Video Wallpaper' : 'Custom Web Background');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -71,9 +92,11 @@ export default function ArtUploaderModal({
       await saveMediaBlob(sceneId, rawFile);
     }
 
+    const finalName = name.trim() || (isVideo ? 'Custom Video Sanctuary' : 'Custom Anime Scene');
+
     const newScene = {
       id: sceneId,
-      name: name.trim() || (isVideo ? 'Custom Video Sanctuary' : 'Custom Anime Scene'),
+      name: finalName,
       subname: isVideo ? 'Live Animated Video Wallpaper' : 'Sanctuary Artwork',
       category: category.trim() || (isVideo ? 'Live Video Wallpaper' : 'Custom Art'),
       artist: 'Custom Collection',
@@ -102,6 +125,19 @@ export default function ArtUploaderModal({
     onClose();
   };
 
+  const handleStartInlineEdit = (scene) => {
+    setEditingSceneId(scene.id);
+    setInlineEditName(scene.name);
+  };
+
+  const handleSaveInlineEdit = (sceneId) => {
+    if (!inlineEditName.trim()) return;
+    if (onRenameScene) {
+      onRenameScene(sceneId, inlineEditName.trim());
+    }
+    setEditingSceneId(null);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in">
       <div className="relative w-full max-w-lg rounded-3xl bg-neutral-950/95 border border-white/15 p-6 shadow-2xl text-slate-100 space-y-5 max-h-[90vh] overflow-y-auto">
@@ -113,13 +149,13 @@ export default function ArtUploaderModal({
               <Upload className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-white">Add Background Art & Video Wallpapers</h3>
-              <p className="text-[11px] text-slate-400">Upload anime art or MP4 video live wallpapers with ambient sound</p>
+              <h3 className="font-bold text-base text-white">Backgrounds & Video Wallpapers</h3>
+              <p className="text-[11px] text-slate-400">Add, name, and manage your custom sanctuary themes</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -134,7 +170,7 @@ export default function ArtUploaderModal({
             }`}
           >
             <Upload className="w-3.5 h-3.5" />
-            <span>Upload Image or MP4 Video</span>
+            <span>Upload File</span>
           </button>
           <button
             onClick={() => setTab('url')}
@@ -148,7 +184,7 @@ export default function ArtUploaderModal({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-3 font-sans text-xs">
+        <form onSubmit={handleSubmit} className="space-y-3.5 font-sans text-xs">
           
           {tab === 'upload' ? (
             <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-white/20 hover:border-amber-400/60 rounded-2xl cursor-pointer bg-white/5 hover:bg-white/10 transition-all p-3 text-center overflow-hidden">
@@ -242,31 +278,41 @@ export default function ArtUploaderModal({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[10px] text-slate-400 block mb-1">SCENE NAME</label>
-              <input
-                type="text"
-                placeholder={isVideo ? "e.g. Rainy Shinjuku Video" : "e.g. My Ghibli Study"}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-white/15 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400"
-              />
+          {/* Prominent Name Input Section */}
+          <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-amber-300 flex items-center space-x-1.5">
+                <Edit2 className="w-3 h-3" />
+                <span>NAME YOUR BACKGROUND</span>
+              </label>
+              <span className="text-[10px] text-slate-400">Custom label</span>
             </div>
+            
+            <input
+              type="text"
+              placeholder={isVideo ? "e.g. Rainy Shinjuku Video" : "e.g. My Ghibli Study Desk"}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl bg-neutral-900 border border-white/20 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400 transition-colors"
+            />
+            <p className="text-[10px] text-slate-400">
+              You can also change this name anytime by clicking the pencil icon on the bottom dock or list below.
+            </p>
+          </div>
 
-            <div>
-              <label className="text-[10px] text-slate-400 block mb-1">ACCENT COLOR</label>
-              <div className="flex items-center space-x-2 mt-1">
-                {['#fbbf24', '#38bdf8', '#34d399', '#f43f5e', '#a855f7', '#ffffff'].map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setAccentColor(color)}
-                    className={`w-6 h-6 rounded-full border transition-all ${accentColor === color ? 'ring-2 ring-white scale-110' : 'opacity-70'}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
+          {/* Accent Color Dot */}
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[11px] text-slate-300 font-medium">ACCENT COLOR</span>
+            <div className="flex items-center space-x-2">
+              {['#fbbf24', '#38bdf8', '#34d399', '#f43f5e', '#a855f7', '#ffffff'].map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setAccentColor(color)}
+                  className={`w-5 h-5 rounded-full border transition-all ${accentColor === color ? 'ring-2 ring-white scale-110' : 'opacity-70'}`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
             </div>
           </div>
 
@@ -280,24 +326,28 @@ export default function ArtUploaderModal({
           </button>
         </form>
 
-        {/* Custom Uploaded Scenes List */}
+        {/* Custom Uploaded Backgrounds List with Name Editing */}
         {customScenes.length > 0 && (
           <div className="pt-3 border-t border-white/10 space-y-2">
             <div className="text-[11px] font-sans text-slate-400 uppercase tracking-wider flex items-center justify-between">
               <span>Your Custom Backgrounds ({customScenes.length})</span>
+              <span className="text-[10px] text-slate-500">Click ✎ to rename</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {customScenes.map((cs) => {
                 const isSelected = cs.id === currentSceneId;
+                const isEditing = editingSceneId === cs.id;
+
                 return (
                   <div
                     key={cs.id}
-                    className={`relative rounded-xl overflow-hidden border p-1.5 flex items-center space-x-2 bg-white/5 transition-all ${
-                      isSelected ? 'border-amber-400 ring-1 ring-amber-400' : 'border-white/10 hover:border-white/20'
+                    className={`relative rounded-xl overflow-hidden border p-2 flex items-center space-x-2.5 bg-white/5 transition-all ${
+                      isSelected ? 'border-amber-400 ring-1 ring-amber-400/50 bg-amber-400/5' : 'border-white/10 hover:border-white/20'
                     }`}
                   >
-                    <div className="w-12 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-black relative">
+                    {/* Thumbnail */}
+                    <div className="w-14 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-black relative">
                       {cs.isVideo ? (
                         <video src={cs.videoUrl || cs.imageUrl} muted playsInline className="w-full h-full object-cover" />
                       ) : (
@@ -309,36 +359,148 @@ export default function ArtUploaderModal({
                         </div>
                       )}
                     </div>
-                    <div className="overflow-hidden flex-1">
-                      <div className="text-xs font-semibold text-white truncate">{cs.name}</div>
-                      <div className="flex items-center space-x-1">
-                        <button
-                          onClick={() => onSelectScene(cs.id)}
-                          className="text-[10px] text-amber-300 hover:underline"
-                        >
-                          {isSelected ? 'Active' : 'Select'}
-                        </button>
-                        {cs.isVideo && cs.enableSound && (
-                          <span className="text-[9px] text-emerald-400 flex items-center">
-                            <Volume2 className="w-2.5 h-2.5 mr-0.5" /> Sound on
-                          </span>
-                        )}
-                      </div>
+
+                    {/* Content / Inline Rename */}
+                    <div className="overflow-hidden flex-1 min-w-0">
+                      {isEditing ? (
+                        <div className="flex items-center space-x-1">
+                          <input
+                            type="text"
+                            value={inlineEditName}
+                            onChange={(e) => setInlineEditName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveInlineEdit(cs.id);
+                              if (e.key === 'Escape') setEditingSceneId(null);
+                            }}
+                            autoFocus
+                            className="w-full px-2 py-0.5 rounded-lg bg-neutral-900 border border-amber-400 text-white text-xs focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveInlineEdit(cs.id)}
+                            className="p-1 rounded-md bg-amber-400 text-black hover:bg-amber-300"
+                            title="Save"
+                          >
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingSceneId(null)}
+                            className="p-1 rounded-md text-slate-400 hover:text-white"
+                            title="Cancel"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-center space-x-1.5">
+                            <span className="text-xs font-semibold text-white truncate max-w-[150px]">{cs.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleStartInlineEdit(cs)}
+                              className="text-slate-400 hover:text-amber-300 transition-colors p-0.5"
+                              title="Rename background"
+                            >
+                              <Edit2 className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                          <div className="flex items-center space-x-2 mt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => onSelectScene(cs.id)}
+                              className={`text-[10px] font-medium transition-colors ${
+                                isSelected ? 'text-amber-300 font-bold' : 'text-slate-400 hover:text-white'
+                              }`}
+                            >
+                              {isSelected ? '✓ Active' : 'Set Active'}
+                            </button>
+                            {cs.isVideo && cs.enableSound && (
+                              <span className="text-[9px] text-emerald-400 flex items-center">
+                                <Volume2 className="w-2.5 h-2.5 mr-0.5" /> Sound
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <button
-                      onClick={() => onDeleteCustomScene(cs.id)}
-                      className="p-1 text-slate-400 hover:text-rose-400 transition-colors"
-                      title="Delete background"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {/* Actions */}
+                    {!isEditing && (
+                      <div className="flex items-center space-x-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onOpenRenameModal) onOpenRenameModal(cs);
+                            else handleStartInlineEdit(cs);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-white/10 transition-colors"
+                          title="Rename background"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onDeleteCustomScene(cs.id)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          title="Delete background"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           </div>
         )}
+
+        {/* Built-in Presets Rename Section */}
+        <div className="pt-3 border-t border-white/10 space-y-2">
+          <div className="text-[11px] font-sans text-slate-400 uppercase tracking-wider flex items-center justify-between">
+            <span>Built-in Sanctuary Wallpapers</span>
+            <span className="text-[10px] text-slate-500">Custom names supported</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {ANIME_SCENES.map((scene) => {
+              const isSelected = scene.id === currentSceneId;
+              return (
+                <div
+                  key={scene.id}
+                  className={`p-2 rounded-xl border flex items-center justify-between space-x-2 bg-white/5 transition-all ${
+                    isSelected ? 'border-amber-400/80 bg-amber-400/5' : 'border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2 overflow-hidden min-w-0">
+                    <span 
+                      className="w-2 h-2 rounded-full flex-shrink-0" 
+                      style={{ backgroundColor: scene.accentColor }} 
+                    />
+                    <span 
+                      onClick={() => onSelectScene(scene.id)}
+                      className="text-xs truncate font-medium text-slate-200 hover:text-white cursor-pointer"
+                      title="Click to apply"
+                    >
+                      {scene.name}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => onOpenRenameModal && onOpenRenameModal(scene)}
+                    className="p-1 rounded-md text-slate-400 hover:text-amber-300 hover:bg-white/10 flex-shrink-0 transition-colors"
+                    title={`Rename "${scene.name}"`}
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
       </div>
     </div>

@@ -18,7 +18,8 @@ import {
   Music,
   Upload,
   Video,
-  Film
+  Film,
+  Edit2
 } from 'lucide-react';
 
 export default function BottomDock({
@@ -41,7 +42,8 @@ export default function BottomDock({
   onOpenArtUploader,
   onOpenMusicUploader,
   showVideoVisualizer,
-  onToggleVideoVisualizer
+  onToggleVideoVisualizer,
+  onOpenRenameScene
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -144,7 +146,12 @@ export default function BottomDock({
             <button
               key={s.id}
               onClick={() => onSelectScene(s.id)}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-sans transition-all duration-200 flex-shrink-0 ${
+              onContextMenu={(e) => {
+                e.preventDefault();
+                if (onOpenRenameScene) onOpenRenameScene(s);
+              }}
+              title={`${s.name} (Click to apply · Right-click or ✎ to rename)`}
+              className={`group flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-sans transition-all duration-200 flex-shrink-0 ${
                 isSelected
                   ? 'bg-white text-black font-bold shadow-md'
                   : 'text-slate-300 hover:text-white hover:bg-white/10'
@@ -157,6 +164,19 @@ export default function BottomDock({
               <span className="truncate max-w-[120px]">{s.name}</span>
               {s.isVideo && (
                 <Film className="w-2.5 h-2.5 text-amber-300 ml-0.5 flex-shrink-0" />
+              )}
+              {isSelected && onOpenRenameScene && (
+                <span
+                  role="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenRenameScene(s);
+                  }}
+                  className="p-0.5 ml-1 rounded hover:bg-black/15 text-neutral-600 hover:text-black transition-colors"
+                  title="Rename this background"
+                >
+                  <Edit2 className="w-2.5 h-2.5" />
+                </span>
               )}
             </button>
           );

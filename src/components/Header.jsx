@@ -10,7 +10,8 @@ import {
   LogIn,
   LogOut,
   ShieldCheck,
-  ChevronDown
+  ChevronDown,
+  Edit2
 } from 'lucide-react';
 import { getFocusSummary } from '../utils/focusStats';
 
@@ -23,7 +24,8 @@ export default function Header({
   currentUser,
   onOpenAuth,
   onLogout,
-  focusStats
+  focusStats,
+  onOpenRenameScene
 }) {
   const [time, setTime] = useState(new Date());
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -60,8 +62,13 @@ export default function Header({
               {scene.category}
             </span>
           </div>
-          <p className="text-[11px] text-slate-300 drop-shadow flex items-center space-x-1.5">
-            <span className="font-medium text-white/90">{scene.name}</span>
+          <p 
+            onClick={() => onOpenRenameScene && onOpenRenameScene(scene)}
+            className="text-[11px] text-slate-300 drop-shadow flex items-center space-x-1.5 cursor-pointer group"
+            title={`Background: "${scene.name}" (Click to rename)`}
+          >
+            <span className="font-medium text-white/90 group-hover:text-amber-300 transition-colors">{scene.name}</span>
+            <Edit2 className="w-2.5 h-2.5 text-slate-400 group-hover:text-amber-300 opacity-60 group-hover:opacity-100 transition-all" />
             <span className="text-slate-400">·</span>
             <span className="text-slate-300">{scene.tag}</span>
           </p>

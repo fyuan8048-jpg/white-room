@@ -12,6 +12,7 @@ import OAAProfileModal from './components/OAAProfileModal';
 import CustomSoundLoopPlayer from './components/CustomSoundLoopPlayer';
 import AuthModal from './components/AuthModal';
 import BackgroundVideoControls from './components/BackgroundVideoControls';
+import RenameBackgroundModal from './components/RenameBackgroundModal';
 
 import { ANIME_SCENES } from './utils/artScenes';
 import { FOCUS_PLAYLIST } from './utils/focusTracks';
@@ -53,12 +54,23 @@ export default function App() {
     return userId ? loadUserData(userId, 'custom_scenes', []) : loadFromStorage('custom_scenes', []);
   });
 
-  const allScenes = [...ANIME_SCENES, ...customScenes];
+  // Custom Background Names mapping (User scoped or Global): { [sceneId]: customName }
+  const [sceneNameOverrides, setSceneNameOverrides] = useState(() => {
+    return userId ? loadUserData(userId, 'scene_name_overrides', {}) : loadFromStorage('scene_name_overrides', {});
+  });
+
+  const allScenes = [...ANIME_SCENES, ...customScenes].map(s => {
+    const customName = sceneNameOverrides[s.id];
+    return customName ? { ...s, name: customName } : s;
+  });
 
   // Selected Anime Scene
   const [sceneId, setSceneId] = useState(() => {
     return localStorage.getItem('whiteroom_anime_scene') || 'cote-white-room';
   });
+
+  // Scene currently opened for renaming
+  const [sceneToRename, setSceneToRename] = useState(null);
 
   // Custom User Tracks (Audio & MP4 Video Sounds)
   const [customTracks, setCustomTracks] = useState(() => {
@@ -171,6 +183,12 @@ export default function App() {
 
   useEffect(() => {
     if (isSwitchingUserRef.current) return;
+    if (userId) saveUserData(userId, 'scene_name_overrides', sceneNameOverrides);
+    else saveToStorage('scene_name_overrides', sceneNameOverrides);
+  }, [sceneNameOverrides, userId]);
+
+  useEffect(() => {
+    if (isSwitchingUserRef.current) return;
     if (userId) saveUserData(userId, 'custom_tracks', customTracks);
     else saveToStorage('custom_tracks', customTracks);
   }, [customTracks, userId]);
@@ -235,6 +253,7 @@ export default function App() {
     setBrainstormCards(loadUserData(uid, 'cards', []));
     setSessionLogs(loadUserData(uid, 'session_logs', []));
     setCustomScenes(loadUserData(uid, 'custom_scenes', []));
+    setSceneNameOverrides(loadUserData(uid, 'scene_name_overrides', {}));
     setCustomTracks(loadUserData(uid, 'custom_tracks', []));
     setCustomSoundLayers(loadUserData(uid, 'custom_sound_layers', []));
     setFocusStats(loadUserData(uid, 'focus_stats', getEmptyStats()));
@@ -270,6 +289,7 @@ export default function App() {
     setProfile(initial.profile);
     setFocusStats(loadDailyStats());
     setCustomScenes(loadFromStorage('custom_scenes', []));
+    setSceneNameOverrides(loadFromStorage('scene_name_overrides', {}));
     setCustomTracks(loadFromStorage('custom_tracks', []));
     setCustomSoundLayers(loadFromStorage('custom_sound_layers', []));
 
@@ -446,6 +466,55 @@ export default function App() {
     setCustomScenes(customScenes.filter(s => s.id !== id));
     await deleteMediaBlob(id);
     if (sceneId === id) setSceneId('cote-white-room');
+  };
+
+  const handleRenameScene = (sceneIdToRename, newName, newAccentColor) => {
+    const trimmed = (newName || '').trim();
+    if (!trimmed) return;
+
+    setSceneNameOverrides(prev => ({
+      ...prev,
+      [sceneIdToRename]: trimmed
+    }));
+
+    setCustomScenes(prev => prev.map(s => {
+      if (s.id === sceneIdToRename) {
+        return {
+          ...s,
+          name: trimmed,
+          accentColor: newAccentColor || s.accentColor
+        };
+      }
+      return s;
+    }));
+
+    setAuthToast({
+      type: 'success',
+      message: `Background renamed to "${trimmed}"`
+    });
+  };
+
+  const handleResetSceneName = (sceneIdToReset) => {
+    setSceneNameOverrides(prev => {
+      const next = { ...prev };
+      delete next[sceneIdToReset];
+      return next;
+    });
+    const orig = ANIME_SCENES.find(s => s.id === sceneIdToReset);
+    setAuthToast({
+      type: 'info',
+      message: `Restored background name to "${orig?.name || 'Default'}"`
+    });
+  };
+
+  const handleUpdateCustomScene = (id, updates) => {
+    setCustomScenes(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    if (updates.name) {
+      setSceneNameOverrides(prev => ({
+        ...prev,
+        [id]: updates.name.trim()
+      }));
+    }
   };
 
   const handleToggleMute = () => {
@@ -696,6 +765,7 @@ export default function App() {
         zenMode={zenMode}
         brightness={bgBrightness}
         onBrightnessChange={setBgBrightness}
+        onOpenRenameScene={(scene) => setSceneToRename(scene)}
       />
 
       {/* 2. Soft Ambient Film Overlay (subtler in Zen for wallpaper clarity) */}
@@ -713,6 +783,7 @@ export default function App() {
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onLogout={handleLogout}
           focusStats={focusStats}
+          onOpenRenameScene={(scene) => setSceneToRename(scene)}
         />
       )}
 
@@ -817,6 +888,7 @@ export default function App() {
           onOpenMusicUploader={() => setIsMusicUploaderOpen(true)}
           showVideoVisualizer={showVideoVisualizer}
           onToggleVideoVisualizer={() => setShowVideoVisualizer(!showVideoVisualizer)}
+          onOpenRenameScene={(scene) => setSceneToRename(scene)}
         />
       )}
 
@@ -897,6 +969,20 @@ export default function App() {
         onDeleteCustomScene={handleDeleteCustomScene}
         onSelectScene={setSceneId}
         currentSceneId={sceneId}
+        onRenameScene={handleRenameScene}
+        onResetSceneName={handleResetSceneName}
+        onOpenRenameModal={(scene) => setSceneToRename(scene)}
+      />
+
+      {/* Rename Background Modal */}
+      <RenameBackgroundModal
+        isOpen={!!sceneToRename}
+        onClose={() => setSceneToRename(null)}
+        scene={sceneToRename}
+        onRename={handleRenameScene}
+        onResetName={handleResetSceneName}
+        isDefaultScene={ANIME_SCENES.some(s => s.id === sceneToRename?.id)}
+        defaultName={ANIME_SCENES.find(s => s.id === sceneToRename?.id)?.name || ''}
       />
 
       {/* Custom Music & MP4 Video Sounds Library Modal */}
