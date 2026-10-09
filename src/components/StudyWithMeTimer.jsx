@@ -126,8 +126,14 @@ export default function StudyWithMeTimer({
     }
   }, [activeTask]);
 
+  const isFirstMountRef = useRef(true);
+
   // Notify phase changes to parent (for auto-transitions of music & scene)
   useEffect(() => {
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false;
+      return;
+    }
     if (onPhaseChange) {
       if (mode === 'shortBreak') onPhaseChange('shortBreak');
       else if (mode === 'longBreak') onPhaseChange('longBreak');
@@ -140,14 +146,6 @@ export default function StudyWithMeTimer({
     if (!isRunning) {
       if (mode === 'focus') {
         const d = timerConfig.focusTime * 60;
-        setTimeLeft(d);
-        timeLeftRef.current = d;
-      } else if (mode === 'ultradian') {
-        const d = 90 * 60;
-        setTimeLeft(d);
-        timeLeftRef.current = d;
-      } else if (mode === 'exam') {
-        const d = (timerConfig.examTime || 60) * 60;
         setTimeLeft(d);
         timeLeftRef.current = d;
       } else if (mode === 'shortBreak') {
@@ -163,7 +161,7 @@ export default function StudyWithMeTimer({
         flowtimeAccumRef.current = 0;
       }
     }
-  }, [mode, timerConfig.focusTime, timerConfig.shortBreakTime, timerConfig.longBreakTime, timerConfig.examTime]);
+  }, [mode, timerConfig.focusTime, timerConfig.shortBreakTime, timerConfig.longBreakTime]);
 
   // Initialize Web Worker ticker once
   useEffect(() => {
@@ -273,7 +271,7 @@ export default function StudyWithMeTimer({
     endTimeRef.current = null;
     if (workerRef.current) workerRef.current.postMessage('stop');
 
-    const isStudyPhase = ['focus', 'ultradian', 'exam'].includes(mode);
+    const isStudyPhase = ['focus', 'flowtime'].includes(mode);
 
     if (isStudyPhase) {
       focusAudioSuite.playRestChime();
@@ -287,11 +285,7 @@ export default function StudyWithMeTimer({
         });
       } catch (e) {}
 
-      const durationMinutes = mode === 'ultradian' 
-        ? 90 
-        : mode === 'exam' 
-          ? (timerConfig.examTime || 60) 
-          : timerConfig.focusTime;
+      const durationMinutes = timerConfig.focusTime;
 
       const nextCount = sessionCount + 1;
       setSessionCount(nextCount);
@@ -413,9 +407,7 @@ export default function StudyWithMeTimer({
       setFlowtimeSeconds(0);
     } else {
       let initial = timerConfig.focusTime * 60;
-      if (mode === 'ultradian') initial = 90 * 60;
-      else if (mode === 'exam') initial = (timerConfig.examTime || 60) * 60;
-      else if (mode === 'shortBreak') initial = timerConfig.shortBreakTime * 60;
+      if (mode === 'shortBreak') initial = timerConfig.shortBreakTime * 60;
       else if (mode === 'longBreak') initial = timerConfig.longBreakTime * 60;
 
       setTimeLeft(initial);
@@ -494,14 +486,12 @@ export default function StudyWithMeTimer({
       {/* Timer Container with Customizable Transparency */}
       <div className={`rounded-3xl p-6 sm:p-8 text-center text-slate-100 transition-all duration-300 space-y-5 ${cardClasses}`}>
         
-        {/* Mode Selector Capsule: Pomodoro, Flowtime Stopwatch, 90m Ultradian, Exam & Breaks */}
+        {/* Mode Selector Capsule: Pomodoro, Flowtime, Rest & Long Rest */}
         <div className="flex items-center justify-center space-x-2">
-          <div className="inline-flex items-center p-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 font-sans text-xs overflow-x-auto max-w-full">
+          <div className="inline-flex items-center p-1 rounded-full bg-black/60 backdrop-blur-md border border-white/15 font-sans text-xs">
             {[
               { id: 'focus', label: 'Pomodoro' },
               { id: 'flowtime', label: 'Flowtime' },
-              { id: 'ultradian', label: '90m Ultradian' },
-              { id: 'exam', label: 'Exam' },
               { id: 'shortBreak', label: 'Rest' },
               { id: 'longBreak', label: 'Long Rest' }
             ].map((m) => (
@@ -516,10 +506,10 @@ export default function StudyWithMeTimer({
                     setMode(m.id);
                   }
                 }}
-                className={`px-3 sm:px-3.5 py-1 rounded-full transition-all duration-200 text-xs flex-shrink-0 ${
+                className={`px-3.5 py-1.5 rounded-full transition-all duration-200 text-xs font-medium flex-shrink-0 ${
                   mode === m.id
-                    ? 'bg-white text-black font-bold shadow-md'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-white text-black font-bold shadow-lg scale-105'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 {m.label}

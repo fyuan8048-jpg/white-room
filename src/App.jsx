@@ -154,8 +154,8 @@ export default function App() {
   // Phase Theme & Music Automation (Study vs Rest vs Long Rest)
   const [phaseConfig, setPhaseConfig] = useState(() => {
     const defaultPhase = {
-      autoSwitchTheme: true,
-      autoSwitchAudio: true,
+      autoSwitchTheme: false,
+      autoSwitchAudio: false,
       studySceneId: 'cote-white-room',
       shortBreakSceneId: 'ghibli-sanctuary-desk',
       longBreakSceneId: 'ghibli-midnight-library',
@@ -937,8 +937,8 @@ export default function App() {
         />
       )}
 
-      {/* 4. Center Stage: Aesthetic Pomodoro Timer (Supports Transparent or Glass mode) */}
-      <main className="relative z-20 flex-1 flex flex-col items-center justify-center p-4 w-full max-w-4xl mx-auto space-y-4">
+      {/* 4. Center Stage: Aesthetic Pomodoro Timer (Scrollable on small viewports with no overlaps) */}
+      <main className="relative z-20 flex-1 w-full max-w-4xl mx-auto px-4 pt-2 pb-28 overflow-y-auto custom-scrollbar flex flex-col items-center justify-start my-auto space-y-4">
         
         {/* Quote Monologue snippet (HIDDEN in Zen Mode) */}
         {!zenMode && !activeWidget && (
